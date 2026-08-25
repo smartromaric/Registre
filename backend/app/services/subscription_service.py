@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models.membership import Membership
 from app.models.organization import Organization
-from app.models.subscription import Subscription, SubscriptionStatus
+from app.models.subscription import Offer, Subscription, SubscriptionStatus
 
 
 class SubscriptionNotFoundError(Exception):
@@ -113,7 +113,7 @@ class SubscriptionService:
         await self.db.flush()
         return transitions
 
-    async def list_organization_summaries(self) -> list[tuple[Organization, Subscription, int]]:
+    async def list_organization_summaries(self) -> list[tuple[Organization, Subscription, int, str | None]]:
         orgs = (await self.db.execute(select(Organization))).scalars().all()
         results = []
         for org in orgs:
@@ -125,5 +125,9 @@ class SubscriptionService:
                 Membership.organization_id == org.id, Membership.is_active.is_(True)
             )
             member_count = len((await self.db.execute(member_count_stmt)).scalars().all())
-            results.append((org, subscription, member_count))
+            offer_name = None
+            if subscription.offer_id is not None:
+                offer = await self.db.get(Offer, subscription.offer_id)
+                offer_name = offer.name if offer else None
+            results.append((org, subscription, member_count, offer_name))
         return results

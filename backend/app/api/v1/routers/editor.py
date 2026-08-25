@@ -111,10 +111,10 @@ async def list_organizations(
     return [
         OrganizationSummaryOut(
             organization_id=org.id, name=org.name, country_code=org.country_code, created_at=org.created_at,
-            subscription_status=subscription.status, offer_name=None,
+            subscription_status=subscription.status, offer_name=offer_name,
             current_period_end=subscription.current_period_end, member_count=member_count,
         )
-        for org, subscription, member_count in summaries
+        for org, subscription, member_count, offer_name in summaries
     ]
 
 

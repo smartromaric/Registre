@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
 
     cors_origins: list[str] = ["http://localhost:3000"]
+    # Base des liens envoyés par e-mail (invitation, réinitialisation de mot de passe) —
+    # distinct de cors_origins par intention, même si la valeur coïncide en dev.
+    frontend_base_url: str = "http://localhost:3000"
 
     trial_period_days: int = 14
     read_only_grace_days: int = 30

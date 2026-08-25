@@ -34,3 +34,33 @@ class AuthResponse(BaseModel):
     tokens: TokenPairOut
     user: UserOut
     is_new_user: bool = False
+
+
+# --- mot de passe oublié (§4.4 raffinement) -----------------------------------------
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=72)
+
+
+# --- acceptation d'invitation par e-mail (§4.4) -------------------------------------
+
+
+class InvitationInfoOut(BaseModel):
+    """Ce qu'une page d'acceptation d'invitation affiche avant de demander un mot de
+    passe — jamais le jeton lui-même, il reste dans l'URL côté client."""
+
+    email: str
+    organization_name: str
+    already_active: bool
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=72)
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)

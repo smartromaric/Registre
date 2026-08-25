@@ -6,9 +6,13 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
+    ForgotPasswordRequest,
     GoogleAuthRequest,
+    InvitationAcceptRequest,
+    InvitationInfoOut,
     LoginRequest,
     RefreshRequest,
+    ResetPasswordRequest,
     SignupRequest,
     TokenPairOut,
 )
@@ -71,6 +75,54 @@ async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
+
+
+# --- mot de passe oublié ----------------------------------------------------------
+
+
+@router.post("/password/forgot", status_code=status.HTTP_204_NO_CONTENT)
+async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> None:
+    """Toujours 204, qu'un compte existe ou non pour cet e-mail — voir
+    AuthService.request_password_reset : éviter d'énumérer les comptes.
+    """
+    await AuthService(db).request_password_reset(payload.email)
+
+
+@router.post("/password/reset", response_model=AuthResponse)
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+    service = AuthService(db)
+    try:
+        user = await service.reset_password(payload.token, payload.password)
+    except AuthError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    tokens = service.issue_tokens(user)
+    return AuthResponse(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
+
+
+# --- acceptation d'invitation par e-mail (§4.4) -------------------------------------
+
+
+@router.get("/invitations/{token}", response_model=InvitationInfoOut)
+async def get_invitation(token: str, db: AsyncSession = Depends(get_db)) -> InvitationInfoOut:
+    service = AuthService(db)
+    try:
+        user, _membership, organization = await service.get_invitation_info(token)
+    except AuthError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return InvitationInfoOut(
+        email=user.email, organization_name=organization.name, already_active=user.hashed_password is not None
+    )
+
+
+@router.post("/invitations/accept", response_model=AuthResponse)
+async def accept_invitation(payload: InvitationAcceptRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+    service = AuthService(db)
+    try:
+        user = await service.accept_invitation(payload.token, payload.password, payload.full_name)
+    except AuthError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    tokens = service.issue_tokens(user)
+    return AuthResponse(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
 
 
 @router.post("/organizations", response_model=OrganizationWithRole, status_code=status.HTTP_201_CREATED)

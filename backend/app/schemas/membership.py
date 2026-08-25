@@ -30,3 +30,11 @@ class MembershipOut(BaseModel):
     is_active: bool
     invited_at: datetime | None
     user: UserOut
+
+
+class MembershipInviteOut(BaseModel):
+    membership: MembershipOut
+    invitation_email_sent: bool
+    # Rempli seulement si un e-mail devait être envoyé mais que le SMTP n'est pas
+    # configuré — à transmettre à la main plutôt que de laisser l'invitation bloquée.
+    invitation_link: str | None

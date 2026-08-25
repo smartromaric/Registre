@@ -315,10 +315,44 @@ Détail de ce qui est fait/pas fait dans `frontend/README.md`.
   liens signés HMAC pour le dev, S3/MinIO pour la production).
 - Migrations Alembic appliquées et vérifiées contre une vraie base PostgreSQL locale.
 
-Non fait volontairement à ce stade (arrive avec les lots suivants) : réinitialisation de
-mot de passe par e-mail, 2FA, flux d'acceptation d'invitation par e-mail — la mécanique
-d'invitation existe déjà côté données, l'envoi de l'e-mail arrivera avec le moteur de
-notifications du lot 1 plutôt que d'être dupliqué ici.
+Non fait volontairement à ce stade : 2FA (voir §10.11 pour le reste des raffinements
+d'authentification, ajoutés après coup une fois le moteur de notifications disponible).
+
+**Raffinements ajoutés a posteriori (2026-08-25) — réinitialisation de mot de passe et
+acceptation d'invitation par e-mail :**
+
+- `POST /auth/password/forgot` (toujours 204, qu'un compte existe ou non pour cet
+  e-mail — énumérer les comptes serait une fuite d'information) et
+  `POST /auth/password/reset` (jeton dédié `password_reset`, 1 h de validité, déjà
+  posé dès le lot 0 mais jamais branché à une route jusqu'ici).
+- `GET /auth/invitations/{token}` (aperçu avant de demander un mot de passe — e-mail,
+  nom de l'organisation, jamais le jeton lui-même) et `POST /auth/invitations/accept`.
+  Le jeton d'invitation (14 jours de validité) porte `organization_id` en plus de
+  l'identifiant utilisateur : accepter une invitation se produit avant toute
+  authentification, donc avant que `SET LOCAL app.current_org_id` n'ait de raison
+  d'être positionné — sans cette information explicite dans le jeton signé, la ligne
+  `memberships` correspondante resterait invisible sous RLS (même blocage de
+  démarrage que l'onboarding d'une organisation, §10.6). Un utilisateur déjà titulaire
+  d'un mot de passe (déjà actif sur la plateforme, invité dans une nouvelle
+  organisation) n'a rien à accepter par e-mail : il se connecte normalement, aucun
+  e-mail n'est envoyé.
+- Si le SMTP n'est pas configuré sur l'environnement, `POST .../members` renvoie quand
+  même 201 (l'appartenance est bien créée) mais avec `invitation_email_sent: false` et
+  `invitation_link` rempli, pour qu'un administrateur puisse transmettre le lien à la
+  main plutôt que l'invitation ne reste bloquée sans que personne ne le sache.
+
+**Bug réel trouvé en testant le flux d'invitation via l'API (pas seulement via les
+tests automatisés)** : `Membership.user` est une relation `lazy="joined"` — ce réglage
+ne joue qu'au moment d'un `SELECT` (jointure automatique), jamais après la simple
+construction et le `flush()` d'un objet neuf. Sérialiser la réponse de `POST
+.../members` déclenchait donc un lazy-load de `membership.user` hors du pont async
+(`MissingGreenlet`) — présent depuis le lot 0, jamais exercé par un test HTTP jusqu'ici
+puisque `list_members`/`update_member` relisent toujours la ligne par un `SELECT`
+(donc bénéficient normalement de la jointure), alors que `invite()` construit l'objet
+en mémoire. Corrigé en affectant directement `membership.user = user` (l'objet est
+déjà en main, inutile de recharger la ligne) — même famille de bug que le correctif
+`onupdate=utcnow` de `models/base.py`, cause différente, remède similaire : ne jamais
+laisser SQLAlchemy tenter une résolution paresseuse pendant la sérialisation Pydantic.
 
 ### 10.2 Détail du lot 1 livré
 
@@ -544,7 +578,8 @@ arrivera avec le prochain travail sur le frontend.
 - **Espace éditeur** (§13) : liste de toutes les organisations avec statut
   d'abonnement, échéance et nombre d'utilisateurs ; ajustement manuel d'un
   abonnement (prolonger/suspendre/réactiver, motif obligatoire, tracé au journal
-  d'audit de l'organisation concernée).
+  d'audit de l'organisation concernée). `offer_name` était toujours renvoyé `null`
+  (`list_organization_summaries` ne joignait jamais `Offer`) — corrigé, testé.
 
 **Décision d'architecture notable — l'éditeur et le cloisonnement (§4.3) :**
 `subscriptions`, `payments` et `invoices` sont les **seules** tables où une

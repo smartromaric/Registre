@@ -45,6 +45,33 @@ def create_password_reset_token(user_id: uuid.UUID) -> str:
     return _create_token(user_id, "password_reset", timedelta(hours=1))
 
 
+def create_invitation_token(user_id: uuid.UUID, organization_id: uuid.UUID) -> str:
+    """§4.4 : le lien d'invitation par e-mail. Volontairement long à vivre (14
+    jours, comme la durée de rétention la plus courte du produit) — un membre
+    invité qui revient de congés ne doit pas trouver un lien mort.
+
+    Porte `organization_id` en plus du sujet (`user_id`) : accepter une
+    invitation se produit avant toute authentification, donc avant que
+    `SET LOCAL app.current_org_id`/`app.current_user_id` n'aient de raison
+    d'être positionnés — sans `organization_id` explicite dans le jeton, la
+    ligne `memberships` correspondante resterait invisible sous RLS (même
+    blocage de démarrage que l'onboarding d'une organisation, voir
+    AuthService.onboard_organization). Encoder aussi l'organisation lève
+    l'ambiguïté si la même personne est invitée deux fois, dans deux
+    organisations, avant d'avoir accepté la première.
+    """
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(user_id),
+        "type": "invitation",
+        "organization_id": str(organization_id),
+        "iat": int(now.timestamp()),
+        "exp": now + timedelta(days=14),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict:
     settings = get_settings()
     try:

@@ -206,6 +206,37 @@ async def test_editor_catalog_routes_include_inactive_offers_and_currencies(clie
     assert "ZZZ" in {c["code"] for c in currencies.json()}
 
 
+async def test_organization_summary_includes_offer_name_once_validated(client, db_session):
+    """Corrige un bug reel : offer_name restait toujours null cote editeur, meme
+    pour une organisation dont l abonnement porte deja une offre validee."""
+    org, user, subscription = await _bootstrap_org_with_trial(db_session)
+    offer = Offer(name="Semestrielle", duration_months=6, storage_quota_gb=10, user_quota=15, prices={"XAF": 25000})
+    db_session.add(offer)
+    await db_session.flush()
+
+    editor = User(
+        email=f"{uuid.uuid4()}@example.com", full_name="Editeur", hashed_password=hash_password("x"),
+        is_platform_admin=True, is_active=True,
+    )
+    db_session.add(editor)
+    await db_session.flush()
+    await db_session.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+
+    payment = await PaymentService(db_session).declare(
+        organization_id=org.id, actor=user, offer_id=offer.id, amount=25000, reference="REF-OFFER"
+    )
+    await PaymentService(db_session).validate(
+        payment_id=payment.id, editor=editor, validated_amount=25000, currency_code="XAF",
+        method=PaymentMethod.MOBILE_MONEY, validated_reference="REF-OFFER",
+    )
+
+    headers = {"Authorization": f"Bearer {create_access_token(editor.id)}"}
+    response = await client.get("/api/v1/editor/organizations", headers=headers)
+    assert response.status_code == 200, response.text
+    summary = next(o for o in response.json() if o["organization_id"] == str(org.id))
+    assert summary["offer_name"] == "Semestrielle"
+
+
 async def test_editor_catalog_routes_forbidden_for_non_platform_admin(client, db_session):
     user = User(
         email=f"{uuid.uuid4()}@example.com", full_name="Awa", hashed_password=hash_password("x"),

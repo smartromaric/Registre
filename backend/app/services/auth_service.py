@@ -4,14 +4,16 @@ from datetime import UTC, datetime
 
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.countries import currency_and_timezone_for_country
+from app.core.mailer import MailerNotConfiguredError, send_email
 from app.core.security import (
     InvalidTokenError,
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     hash_password,
@@ -160,3 +162,95 @@ class AuthService:
         await SubscriptionService(self.db).create_trial_subscription(organization)
 
         return organization, membership
+
+    # --- mot de passe oublié ----------------------------------------------------------
+
+    async def request_password_reset(self, email: str) -> None:
+        """Toujours un succès silencieux côté appelant, qu'un compte existe ou non
+        pour cet e-mail — révéler la différence permettrait d'énumérer les comptes.
+        Si l'envoi échoue faute de SMTP configuré, l'erreur est volontairement
+        avalée ici (contrairement à une invitation, il n'y a personne à qui
+        rapporter l'échec autrement qu'en confirmant que "si un compte existe,
+        un e-mail a été envoyé" reste vrai côté données).
+        """
+        user = await self.users.get_by_email(email.strip().lower())
+        if user is None or user.hashed_password is None or not user.is_active:
+            return
+        token = create_password_reset_token(user.id)
+        link = f"{get_settings().frontend_base_url}/reinitialiser-mot-de-passe?token={token}"
+        try:
+            send_email(
+                to=user.email,
+                subject="Réinitialisation de votre mot de passe Registre",
+                body=(
+                    f"Bonjour {user.full_name},\n\n"
+                    "Une réinitialisation de mot de passe a été demandée pour votre compte Registre.\n"
+                    f"Ce lien est valable 1 heure : {link}\n\n"
+                    "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail — "
+                    "votre mot de passe reste inchangé."
+                ),
+            )
+        except MailerNotConfiguredError:
+            pass
+
+    async def reset_password(self, token: str, new_password: str) -> User:
+        try:
+            payload = decode_token(token)
+        except InvalidTokenError as exc:
+            raise AuthError("Lien de réinitialisation invalide ou expiré.") from exc
+        if payload.get("type") != "password_reset":
+            raise AuthError("Lien de réinitialisation invalide.")
+        user = await self.users.get(uuid.UUID(payload["sub"]))
+        if user is None or not user.is_active:
+            raise AuthError("Compte introuvable ou désactivé.")
+        user.hashed_password = hash_password(new_password)
+        return await self.users.save(user)
+
+    # --- acceptation d'invitation par e-mail (§4.4) -----------------------------------
+
+    async def _decode_invitation(self, token: str) -> tuple[User, Membership, Organization]:
+        try:
+            payload = decode_token(token)
+        except InvalidTokenError as exc:
+            raise AuthError("Lien d'invitation invalide ou expiré.") from exc
+        if payload.get("type") != "invitation":
+            raise AuthError("Lien d'invitation invalide.")
+
+        user_id = uuid.UUID(payload["sub"])
+        organization_id = uuid.UUID(payload["organization_id"])
+
+        user = await self.users.get(user_id)
+        organization = await self.orgs.get(organization_id)
+        if user is None or organization is None:
+            raise AuthError("Invitation introuvable.")
+
+        # Avant toute authentification : positionner le contexte d'organisation à
+        # partir du jeton signé est ce qui rend la ligne memberships visible sous
+        # RLS (même bootstrap que AuthService.onboard_organization).
+        await self.db.execute(text(f"SET LOCAL app.current_org_id = '{organization.id}'"))
+        stmt = select(Membership).where(
+            Membership.organization_id == organization.id, Membership.user_id == user.id
+        )
+        membership = (await self.db.execute(stmt)).scalar_one_or_none()
+        if membership is None:
+            raise AuthError("Invitation introuvable.")
+        return user, membership, organization
+
+    async def get_invitation_info(self, token: str) -> tuple[User, Membership, Organization]:
+        return await self._decode_invitation(token)
+
+    async def accept_invitation(self, token: str, password: str, full_name: str | None) -> User:
+        user, _membership, _organization = await self._decode_invitation(token)
+        if user.hashed_password is not None:
+            # Invitation déjà réclamée (ce lien a déjà servi, ou le compte a été
+            # activé autrement entretemps, ex. connexion Google) : pas d'erreur,
+            # on laisse simplement la personne se connecter normalement.
+            raise AuthError("Cette invitation a déjà été acceptée — connectez-vous normalement.")
+        # Seul `User` porte l'état "en attente" (`hashed_password is None`,
+        # `is_active=False`) — `Membership.is_active` est déjà à `true` depuis sa
+        # création par `MembershipService.invite` (§4.4) : rien à changer là.
+        user.hashed_password = hash_password(password)
+        if full_name:
+            user.full_name = full_name
+        user.is_active = True
+        return await self.users.save(user)
