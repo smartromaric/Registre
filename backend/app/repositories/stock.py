@@ -1,9 +1,19 @@
 import uuid
+from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock import ArticleConfig, ArticleVariant, ConsignmentLevel, Depot, StockLevel, StockLot, StockMovement
+from app.models.stock import (
+    ArticleConfig,
+    ArticleVariant,
+    ConsignmentLevel,
+    Depot,
+    DepotThreshold,
+    StockLevel,
+    StockLot,
+    StockMovement,
+)
 
 
 class StockRepository:
@@ -74,6 +84,59 @@ class StockRepository:
             StockLot.variant_id == variant_id, StockLot.depot_id == depot_id, StockLot.lot_number == lot_number
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    async def list_lots(
+        self,
+        organization_id: uuid.UUID,
+        *,
+        variant_id: uuid.UUID | None = None,
+        depot_id: uuid.UUID | None = None,
+        include_empty: bool = False,
+        expiring_before: date | None = None,
+    ) -> list[StockLot]:
+        stmt = select(StockLot).where(StockLot.organization_id == organization_id)
+        if not include_empty:
+            stmt = stmt.where(StockLot.remaining_quantity > 0)
+        if variant_id is not None:
+            stmt = stmt.where(StockLot.variant_id == variant_id)
+        if depot_id is not None:
+            stmt = stmt.where(StockLot.depot_id == depot_id)
+        if expiring_before is not None:
+            stmt = stmt.where(StockLot.expiry_date <= expiring_before)
+        stmt = stmt.order_by(StockLot.expiry_date.asc())
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def list_variant_thresholds(self, variant_id: uuid.UUID) -> list[DepotThreshold]:
+        stmt = select(DepotThreshold).where(DepotThreshold.variant_id == variant_id).order_by(DepotThreshold.depot_id)
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    # --- mouvements (lecture) -----------------------------------------------------
+
+    async def list_movements(
+        self,
+        organization_id: uuid.UUID,
+        *,
+        variant_id: uuid.UUID | None = None,
+        depot_id: uuid.UUID | None = None,
+        record_id: uuid.UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[StockMovement], int]:
+        stmt = select(StockMovement).where(StockMovement.organization_id == organization_id)
+        if variant_id is not None:
+            stmt = stmt.where(StockMovement.variant_id == variant_id)
+        if depot_id is not None:
+            stmt = stmt.where(StockMovement.depot_id == depot_id)
+        if record_id is not None:
+            # Un mouvement ne porte que `variant_id` — remonter à l'article passe
+            # par la variante, seule table qui connaît son `record_id`.
+            stmt = stmt.where(
+                StockMovement.variant_id.in_(select(ArticleVariant.id).where(ArticleVariant.record_id == record_id))
+            )
+        total = (await self.db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+        stmt = stmt.order_by(StockMovement.created_at.desc()).limit(limit).offset(offset)
+        rows = list((await self.db.execute(stmt)).scalars().all())
+        return rows, total
 
     # --- idempotence des opérations (§11.4) -------------------------------------------
 

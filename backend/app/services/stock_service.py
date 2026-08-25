@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -503,6 +504,46 @@ class StockService:
 
     async def list_stock_levels(self, organization_id, *, variant_id=None, depot_id=None):
         return await self.repo.list_stock_levels(organization_id, variant_id=variant_id, depot_id=depot_id)
+
+    async def get_article(self, record_id: uuid.UUID) -> tuple[ArticleConfig, list[ArticleVariant]] | None:
+        config = await self.repo.get_article_config(record_id)
+        if config is None:
+            return None
+        return config, await self.repo.list_variants(record_id)
+
+    async def list_lots(
+        self,
+        organization_id: uuid.UUID,
+        *,
+        variant_id: uuid.UUID | None = None,
+        depot_id: uuid.UUID | None = None,
+        include_empty: bool = False,
+        expiring_before: date | None = None,
+    ) -> list[StockLot]:
+        return await self.repo.list_lots(
+            organization_id,
+            variant_id=variant_id,
+            depot_id=depot_id,
+            include_empty=include_empty,
+            expiring_before=expiring_before,
+        )
+
+    async def list_variant_thresholds(self, variant_id: uuid.UUID) -> list[DepotThreshold]:
+        return await self.repo.list_variant_thresholds(variant_id)
+
+    async def list_movements(
+        self,
+        organization_id: uuid.UUID,
+        *,
+        variant_id: uuid.UUID | None = None,
+        depot_id: uuid.UUID | None = None,
+        record_id: uuid.UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[StockMovement], int]:
+        return await self.repo.list_movements(
+            organization_id, variant_id=variant_id, depot_id=depot_id, record_id=record_id, limit=limit, offset=offset
+        )
 
     # --- internes ---------------------------------------------------------------------
 

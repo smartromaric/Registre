@@ -128,6 +128,19 @@ class MovementOut(BaseModel):
     created_at: datetime
 
 
+class MovementListOut(BaseModel):
+    items: list[MovementOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class DepotThresholdOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    depot_id: uuid.UUID
+    threshold: int
+
+
 class StockLevelOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

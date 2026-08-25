@@ -405,6 +405,23 @@ Non fait volontairement : suivi nominatif des consignes par client (explicitemen
 périmètre v1, §7.6), achat de stockage supplémentaire (lot 4), écran de saisie
 mobile-first pour les mouvements (frontend, lot suivant).
 
+**Lectures ajoutées en préparation de l'interface Stock** : le lot 2 n'exposait que les
+écritures (créer un dépôt, configurer un article, saisir un mouvement, régler un seuil)
+— une interface a aussi besoin de relire ce qui existe déjà. Quatre routes de lecture
+ajoutées, sans nouvelle table : `GET .../records/{id}/article` (config + variantes d'un
+article déjà configuré), `GET .../stock/movements` (historique paginé, filtrable par
+variante/dépôt/fiche), `GET .../stock/lots` (lots restants, filtrable par échéance de
+péremption — exclut les lots épuisés par défaut), `GET .../variants/{id}/thresholds`
+(surcharges de seuil par dépôt).
+
+**Correctif trouvé en écrivant le test de pagination des mouvements** : `StockMovement.created_at`
+utilisait `server_default=func.now()`, qui reste figé à l'heure de **début de transaction**
+pour toute sa durée en PostgreSQL — or une sortie FIFO multi-lots ou un transfert
+insèrent plusieurs lignes dans le même flush/transaction (§7.5). Ces lignes recevaient
+donc un `created_at` identique, rendant l'ordre "le plus récent d'abord" de l'historique
+non déterministe entre elles. Corrigé par `clock_timestamp()`, qui avance à chaque
+instruction contrairement à `now()` (migration `0fdf30005a2b`).
+
 ### 10.4 Détail du lot 3 livré (partiel — reste : tableaux de bord focalisables)
 
 - **Filtres et tri** (§9) : la liste des fiches accepte des filtres d'égalité sur tout

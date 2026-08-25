@@ -129,7 +129,13 @@ class StockMovement(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
     note: Mapped[str | None] = mapped_column(String(500))
 
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # `clock_timestamp()`, pas `now()` : une sortie FIFO multi-lots ou un transfert
+    # insèrent plusieurs lignes dans le MÊME flush/transaction, et `now()` reste
+    # figé à l'heure de début de transaction pour toutes — l'historique des
+    # mouvements (tri par `created_at DESC`) perdrait alors l'ordre réel entre ces
+    # lignes. `clock_timestamp()` avance à chaque instruction, contrairement à
+    # `now()`/`CURRENT_TIMESTAMP` qui sont stables pour toute la transaction.
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.clock_timestamp())
 
 
 class StockLevel(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):

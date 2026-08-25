@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,10 +18,13 @@ from app.schemas.stock import (
     ConsignmentSummaryOut,
     DepotCreate,
     DepotOut,
+    DepotThresholdOut,
     DepotUpdate,
     MovementCreate,
+    MovementListOut,
     MovementOut,
     StockLevelOut,
+    StockLotOut,
     ThresholdSet,
     TransferCreate,
     VariantInput,
@@ -112,6 +116,27 @@ async def configure_article(
         )
     except (PermissionDeniedError, StockError) as exc:
         raise _error(exc) from exc
+    return ArticleWithVariantsOut(
+        config=ArticleConfigOut.model_validate(config), variants=[ArticleVariantOut.model_validate(v) for v in variants]
+    )
+
+
+@router.get(
+    "/organizations/{organization_id}/records/{record_id}/article",
+    response_model=ArticleWithVariantsOut,
+)
+async def get_article(
+    record_id: uuid.UUID,
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> ArticleWithVariantsOut:
+    record = await RecordService(db).get(membership.organization_id, record_id)
+    if record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Fiche introuvable.")
+    result = await StockService(db).get_article(record_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cette fiche n'est pas configurée comme article de stock.")
+    config, variants = result
     return ArticleWithVariantsOut(
         config=ArticleConfigOut.model_validate(config), variants=[ArticleVariantOut.model_validate(v) for v in variants]
     )
@@ -290,3 +315,54 @@ async def consignment_summary(
     db: AsyncSession = Depends(get_db),
 ) -> ConsignmentSummaryOut:
     return await StockService(db).get_consignment_summary(membership.organization_id, variant_id, depot_id)
+
+
+@router.get("/organizations/{organization_id}/stock/movements", response_model=MovementListOut)
+async def list_movements(
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+    variant_id: uuid.UUID | None = None,
+    depot_id: uuid.UUID | None = None,
+    record_id: uuid.UUID | None = None,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> MovementListOut:
+    movements, total = await StockService(db).list_movements(
+        membership.organization_id, variant_id=variant_id, depot_id=depot_id, record_id=record_id, limit=limit, offset=offset
+    )
+    return MovementListOut(
+        items=[MovementOut.model_validate(m) for m in movements], total=total, limit=limit, offset=offset
+    )
+
+
+@router.get("/organizations/{organization_id}/stock/lots", response_model=list[StockLotOut])
+async def list_lots(
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+    variant_id: uuid.UUID | None = None,
+    depot_id: uuid.UUID | None = None,
+    include_empty: bool = False,
+    expiring_before: date | None = None,
+) -> list[StockLotOut]:
+    lots = await StockService(db).list_lots(
+        membership.organization_id,
+        variant_id=variant_id,
+        depot_id=depot_id,
+        include_empty=include_empty,
+        expiring_before=expiring_before,
+    )
+    return [StockLotOut.model_validate(lot) for lot in lots]
+
+
+@router.get("/organizations/{organization_id}/variants/{variant_id}/thresholds", response_model=list[DepotThresholdOut])
+async def list_variant_thresholds(
+    variant_id: uuid.UUID,
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> list[DepotThresholdOut]:
+    service = StockService(db)
+    variant = await service.repo.get_variant(variant_id)
+    if variant is None or variant.organization_id != membership.organization_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante introuvable.")
+    thresholds = await service.list_variant_thresholds(variant_id)
+    return [DepotThresholdOut.model_validate(t) for t in thresholds]
