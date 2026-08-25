@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, text
 
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password
 from app.models.membership import Membership, OrgRole
 from app.models.organization import Organization
-from app.models.subscription import Offer, Payment, PaymentMethod, Subscription, SubscriptionStatus
+from app.models.subscription import Currency, Offer, Payment, PaymentMethod, Subscription, SubscriptionStatus
 from app.models.user import User
 from app.services.payment_service import PaymentService
 from app.services.subscription_service import SubscriptionService
@@ -173,3 +173,47 @@ async def test_payment_declared_status_is_visible_via_direct_query(db_session):
     stored = (await db_session.execute(stmt)).scalars().all()
     assert len(stored) == 1
     assert stored[0].declared_reference == "REF-2"
+
+
+async def test_editor_catalog_routes_include_inactive_offers_and_currencies(client, db_session):
+    """`GET /catalog/*` (organisations) ne renvoie que les offres/devises actives
+    (§12.1) — mais l'éditeur doit pouvoir retrouver une offre ou une devise déjà
+    désactivée pour la réactiver, sinon aucun moyen de revenir en arrière.
+    """
+    editor = User(
+        email=f"{uuid.uuid4()}@example.com", full_name="Éditeur", hashed_password=hash_password("x"),
+        is_platform_admin=True, is_active=True,
+    )
+    db_session.add(editor)
+    await db_session.flush()
+
+    inactive_offer = Offer(
+        name="Ancienne offre", duration_months=1, storage_quota_gb=1, user_quota=1, prices={"XAF": 1000},
+        is_active=False,
+    )
+    inactive_currency = Currency(code="ZZZ", display_format="{amount} ZZZ", is_active=False)
+    db_session.add_all([inactive_offer, inactive_currency])
+    await db_session.flush()
+
+    headers = {"Authorization": f"Bearer {create_access_token(editor.id)}"}
+
+    offers = await client.get("/api/v1/editor/offers", headers=headers)
+    assert offers.status_code == 200, offers.text
+    assert inactive_offer.name in {o["name"] for o in offers.json()}
+
+    currencies = await client.get("/api/v1/editor/currencies", headers=headers)
+    assert currencies.status_code == 200, currencies.text
+    assert "ZZZ" in {c["code"] for c in currencies.json()}
+
+
+async def test_editor_catalog_routes_forbidden_for_non_platform_admin(client, db_session):
+    user = User(
+        email=f"{uuid.uuid4()}@example.com", full_name="Awa", hashed_password=hash_password("x"),
+        is_platform_admin=False, is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    headers = {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+    response = await client.get("/api/v1/editor/offers", headers=headers)
+    assert response.status_code == 403

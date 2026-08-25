@@ -41,6 +41,24 @@ def _service_error(exc: Exception) -> HTTPException:
 # --- offres et devises (§13) -------------------------------------------------------
 
 
+@router.get("/offers", response_model=list[OfferOut])
+async def list_offers(_admin: User = Depends(require_platform_admin), db: AsyncSession = Depends(get_db)) -> list[OfferOut]:
+    """Toutes les offres, actives ou non — contrairement à `GET /catalog/offers`
+    (réservé aux organisations, actives uniquement), l'éditeur doit pouvoir
+    retrouver une offre désactivée pour la réactiver.
+    """
+    offers = await OfferService(db).list_offers(only_active=False)
+    return [OfferOut.model_validate(o) for o in offers]
+
+
+@router.get("/currencies", response_model=list[CurrencyOut])
+async def list_currencies(
+    _admin: User = Depends(require_platform_admin), db: AsyncSession = Depends(get_db)
+) -> list[CurrencyOut]:
+    currencies = await CurrencyService(db).list_currencies(only_active=False)
+    return [CurrencyOut.model_validate(c) for c in currencies]
+
+
 @router.post("/offers", response_model=OfferOut, status_code=status.HTTP_201_CREATED)
 async def create_offer(
     payload: OfferCreate, _admin: User = Depends(require_platform_admin), db: AsyncSession = Depends(get_db)
