@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
+  BellRing,
   CreditCard,
   GitMerge,
   Home,
@@ -141,6 +142,15 @@ export function AppSidebar() {
         )}
       >
         <SidebarLink href="/" icon={<Home className="size-4 shrink-0" />} label="Accueil" active={pathname === "/"} collapsed={!expanded} />
+        {/* Pas de garde de rôle : chaque membre a des alertes qui lui sont
+            adressées, quel que soit son rôle (§8.1). */}
+        <SidebarLink
+          href="/alertes"
+          icon={<BellRing className="size-4 shrink-0" />}
+          label="Alertes"
+          active={pathname === "/alertes"}
+          collapsed={!expanded}
+        />
 
         {expanded ? (
           <p className="mt-4 mb-1 px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modèles</p>
@@ -275,6 +285,12 @@ export function ModelsNavMenu() {
           ))
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/alertes">
+            <BellRing className="size-4" />
+            Alertes
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/models">
             <Layers className="size-4" />

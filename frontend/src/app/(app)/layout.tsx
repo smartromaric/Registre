@@ -10,6 +10,7 @@ import { Logo } from "@/components/brand/logo";
 import { SplashScreen } from "@/components/brand/splash-screen";
 import { CommandPalette } from "@/components/command-palette";
 import { ErrorState } from "@/components/state-views";
+import { NotificationsBell } from "@/components/notifications/notifications-bell";
 import { OfflineStatusIndicator } from "@/components/offline/offline-status-indicator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -157,6 +158,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             >
               <Search className="size-4" />
             </Button>
+            <span data-tour={TOUR_TARGETS.notifications}>
+              <NotificationsBell />
+            </span>
             <span data-tour={TOUR_TARGETS.offline}>
               <OfflineStatusIndicator />
             </span>

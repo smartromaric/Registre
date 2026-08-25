@@ -1038,3 +1038,48 @@ export interface UploadSessionOut {
   status: "in_progress" | "completed";
   document_id: string | null;
 }
+
+// =========================================================================
+// Alertes et centre de notifications (cahier des charges §8) — mode ADDITIF, ne
+// pas toucher aux types ci-dessus. Miroir exact de backend/app/schemas/alert.py.
+// =========================================================================
+
+// --- backend/app/models/alert.py:AlertSourceType -----------------------------------
+export type AlertSourceType = "deadline" | "stock_threshold" | "lot_expiry";
+
+// --- backend/app/models/alert.py:AlertStatus ---------------------------------------
+export type AlertStatus = "emitted" | "acknowledged" | "postponed" | "resolved";
+
+/** `source_id` désigne la ligne d'origine **selon** `source_type` — un
+ * `RecordDeadline`, un `StockLevel` ou un `StockLot` — et jamais l'identifiant
+ * d'une fiche. Aucune route exposée ne permet aujourd'hui de remonter de ce
+ * `source_id` jusqu'à la fiche concernée (`DeadlineHitOut` porte `record_id`
+ * mais pas l'id du `RecordDeadline`) : le libellé lisible affiché à l'écran ne
+ * vient donc pas d'ici, mais de la notification liée par `related_alert_id`.
+ * Voir `lib/alert-format.ts` et `app/(app)/alertes/page.tsx`. */
+export interface AlertOut {
+  id: string;
+  source_type: AlertSourceType;
+  source_id: string;
+  /** Palier de rappel franchi : "j-60", "j-30", "j-7", "j-0", "overdue-1"…
+   * et "week-AAAA-SS" pour un seuil de stock (une clé par semaine ISO). */
+  palier: string;
+  status: AlertStatus;
+  recipient_user_id: string | null;
+  postponed_until: string | null; // AAAA-MM-JJ
+  created_at: string; // ISO 8601 (datetime)
+  resolved_at: string | null; // ISO 8601 (datetime)
+}
+
+export interface AlertPostpone {
+  postponed_until: string; // AAAA-MM-JJ
+}
+
+export interface NotificationOut {
+  id: string;
+  title: string;
+  body: string;
+  related_alert_id: string | null;
+  is_read: boolean;
+  created_at: string; // ISO 8601 (datetime)
+}

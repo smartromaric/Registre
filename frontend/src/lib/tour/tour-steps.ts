@@ -19,6 +19,7 @@ export const TOUR_TARGETS = {
   models: "models",
   newModel: "new-model",
   search: "search",
+  notifications: "notifications",
   offline: "offline",
   account: "account",
 } as const;
@@ -63,6 +64,12 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Retrouver quelque chose",
     description:
       "La recherche ouvre aussi la palette de commandes : Ctrl + K depuis n'importe quel écran pour aller droit à un modèle ou à une action.",
+  },
+  {
+    target: TOUR_TARGETS.notifications,
+    title: "Ce qui arrive à échéance",
+    description:
+      "La cloche affiche le nombre d'alertes non lues : échéance qui approche, stock sous son seuil, lot bientôt périmé. L'écran Alertes garde l'historique complet, même après acquittement.",
   },
   {
     target: TOUR_TARGETS.offline,
