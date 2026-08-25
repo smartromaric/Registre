@@ -10,6 +10,14 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     api_prefix: str = "/api/v1"
+    # Base publique de CE backend (schéma + hôte), distincte de `frontend_base_url` :
+    # sert à qualifier les liens signés du stockage local (voir app/storage/local.py).
+    # Un chemin relatif (`/api/v1/files/...`) se résout dans le navigateur contre
+    # l'origine de la PAGE qui l'affiche — jamais celle de l'API, qui tourne sur un
+    # port différent en développement (et souvent un sous-domaine différent en
+    # production). Le backend S3 n'a pas ce problème : `generate_presigned_url`
+    # renvoie déjà une URL complète.
+    api_public_url: str = "http://localhost:8000"
 
     # Connexion applicative : rôle restreint, soumis aux politiques RLS (voir app/core/database.py)
     database_url: str = "postgresql+asyncpg://registre_app:registre_app_dev_pw@localhost:5432/registre"

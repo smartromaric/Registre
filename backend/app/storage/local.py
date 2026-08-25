@@ -54,4 +54,11 @@ class LocalFilesystemStorage(StorageBackend):
         ttl = expires_in or settings.signed_url_expire_seconds
         expires_at = int(time.time()) + ttl
         signature = _sign(key, expires_at, settings.file_signing_secret)
-        return f"/api/v1/files/{quote(key)}?exp={expires_at}&sig={signature}"
+        # URL complète, pas un chemin relatif (voir Settings.api_public_url) :
+        # un <img src="/api/v1/files/...">/<a href="..."> rendu par le frontend se
+        # résoudrait contre l'origine de la PAGE (le frontend Next.js), pas contre
+        # celle de ce backend FastAPI — deux origines distinctes dès qu'elles ne
+        # tournent pas sur le même port. Corrigé le 2026-08-25 après un cas réel :
+        # une photo de véhicule téléversée avec succès ne s'affichait jamais nulle
+        # part côté frontend, 404 systématique sur le lien "signé".
+        return f"{settings.api_public_url}{settings.api_prefix}/files/{quote(key)}?exp={expires_at}&sig={signature}"

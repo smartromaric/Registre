@@ -1193,6 +1193,27 @@ lisant le code réel plutôt que supposé. Cinq corrections :
 
 Vérifié par `npm run lint` et `npm run build` après chaque correctif.
 
+### 10.15 Bug trouvé en test réel (2026-08-25) : lien signé du stockage local jamais utilisable depuis le frontend
+
+`LocalFilesystemStorage.signed_url` (`app/storage/local.py`) renvoyait un chemin
+relatif (`/api/v1/files/...`) — jamais chargeable en pratique : un
+`<img src="...">` rendu par le frontend Next.js résout un chemin relatif contre
+l'origine de la PAGE qui l'affiche, pas contre celle de l'API, qui tourne sur un
+port différent en développement (et souvent un sous-domaine différent en
+production). Trouvé en testant réellement une photo de véhicule téléversée avec
+succès mais jamais affichée nulle part côté frontend — 404 systématique. Le
+backend S3 n'avait pas ce problème : `generate_presigned_url` (boto3) renvoie
+déjà une URL complète ; seul le backend local était affecté, silencieusement,
+depuis l'ajout des documents/photos — la suite de tests ne l'a jamais détecté
+car elle appelle l'API et suit ce lien depuis le même processus (une seule
+origine), pas depuis un navigateur avec deux origines distinctes.
+
+Corrigé par un nouveau réglage `Settings.api_public_url` (défaut
+`http://localhost:8000`, à ajuster en production) : `signed_url` renvoie
+désormais une URL complète, alignée sur le contrat déjà respecté par le
+backend S3. Vérifié par la suite complète (83/83, y compris le test qui
+télécharge réellement depuis l'URL renvoyée) et en conditions réelles.
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans
