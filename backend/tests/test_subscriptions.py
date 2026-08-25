@@ -237,6 +237,62 @@ async def test_organization_summary_includes_offer_name_once_validated(client, d
     assert summary["offer_name"] == "Semestrielle"
 
 
+async def test_invoice_pdf_download_returns_a_real_pdf(client, db_session):
+    org, user, subscription = await _bootstrap_org_with_trial(db_session)
+    offer = Offer(name="Mensuelle", duration_months=1, storage_quota_gb=2, user_quota=5, prices={"XAF": 5000})
+    db_session.add(offer)
+    await db_session.flush()
+
+    payment = await PaymentService(db_session).declare(
+        organization_id=org.id, actor=user, offer_id=offer.id, amount=5000, reference="REF-PDF"
+    )
+    editor = User(
+        email=f"{uuid.uuid4()}@example.com", full_name="Éditeur", hashed_password=hash_password("x"),
+        is_platform_admin=True, is_active=True,
+    )
+    db_session.add(editor)
+    await db_session.flush()
+    await db_session.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    _validated, invoice = await PaymentService(db_session).validate(
+        payment_id=payment.id, editor=editor, validated_amount=5000, currency_code="XAF",
+        method=PaymentMethod.MOBILE_MONEY, validated_reference="REF-PDF",
+    )
+
+    headers = {"Authorization": f"Bearer {create_access_token(user.id)}"}
+    response = await client.get(f"/api/v1/organizations/{org.id}/invoices/{invoice.id}/pdf", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF"), "doit etre un vrai fichier PDF, pas un succes simule"
+    assert len(response.content) > 500
+
+
+async def test_invoice_pdf_404_for_invoice_of_another_organization(client, db_session):
+    org_a, user_a, _sub_a = await _bootstrap_org_with_trial(db_session)
+    org_b, user_b, _sub_b = await _bootstrap_org_with_trial(db_session)
+    offer = Offer(name="Mensuelle", duration_months=1, storage_quota_gb=2, user_quota=5, prices={"XAF": 5000})
+    db_session.add(offer)
+    await db_session.flush()
+
+    payment = await PaymentService(db_session).declare(
+        organization_id=org_b.id, actor=user_b, offer_id=offer.id, amount=5000, reference="REF-CROSS"
+    )
+    editor = User(
+        email=f"{uuid.uuid4()}@example.com", full_name="Éditeur", hashed_password=hash_password("x"),
+        is_platform_admin=True, is_active=True,
+    )
+    db_session.add(editor)
+    await db_session.flush()
+    await db_session.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    _validated, invoice = await PaymentService(db_session).validate(
+        payment_id=payment.id, editor=editor, validated_amount=5000, currency_code="XAF",
+        method=PaymentMethod.MOBILE_MONEY, validated_reference="REF-CROSS",
+    )
+
+    headers_a = {"Authorization": f"Bearer {create_access_token(user_a.id)}"}
+    response = await client.get(f"/api/v1/organizations/{org_a.id}/invoices/{invoice.id}/pdf", headers=headers_a)
+    assert response.status_code == 404, "une organisation ne doit jamais telecharger la facture d une autre"
+
+
 async def test_editor_catalog_routes_forbidden_for_non_platform_admin(client, db_session):
     user = User(
         email=f"{uuid.uuid4()}@example.com", full_name="Awa", hashed_password=hash_password("x"),

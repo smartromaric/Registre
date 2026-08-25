@@ -407,11 +407,34 @@ Corrigé en remplaçant `func.now()` par un callable Python (`onupdate=utcnow` d
 `tests/test_record_and_organization_updates.py` et par un test en conditions réelles
 contre un serveur local (les trois routes précédemment cassées renvoient 200).
 
+**Balayage nocturne automatique (2026-08-25)** : `app/celery_app.py` (application
+Celery, programmation quotidienne à 2 h via `celery.schedules.crontab`) et
+`app/tasks/alerts.py` (`run_nightly_alert_scan`, qui balaie chaque organisation
+dans sa propre transaction avec son propre `SET LOCAL app.current_org_id` — les
+tables scannées n'ont aucune politique de contournement pour l'éditeur,
+contrairement à `subscriptions`/`payments`/`invoices`, §4.3). Démarrage en
+production : `celery -A app.celery_app worker` et `celery -A app.celery_app
+beat`, deux processus séparés, tous deux exigeant Redis joignable. **Limite
+assumée de cet environnement de développement** : ni Redis ni Docker n'y sont
+disponibles (vérifié), donc la programmation Celery Beat elle-même
+(déclenchement réellement automatique chaque nuit) n'a pas pu être vérifiée en
+conditions réelles ici — seule la fonction de balayage multi-organisations
+elle-même (`scan_all_organizations`) l'a été, par des tests qui l'appellent
+directement. `POST .../alerts/run-scan` reste utilisable en attendant (manuel,
+ou piloté par un cron système externe qui n'a pas besoin de Redis).
+
+Bug réel trouvé en écrivant ce test : `SET LOCAL` à l'intérieur d'un
+`begin_nested()` (SAVEPOINT) qui se termine normalement (RELEASE, pas ROLLBACK)
+**survit** au-delà de ce savepoint — seul un ROLLBACK l'annule. Sans
+restauration explicite du contexte précédent en fin de chaque itération, le
+contexte d'une organisation fuyait vers l'itération suivante puis, en sortie de
+boucle, vers l'appelant — sans conséquence en production (la session est jetée
+juste après), mais capable de fausser silencieusement tout code qui
+réutiliserait la même session ensuite (exactement le cas des tests, qui l'ont
+révélé).
+
 Non fait volontairement à ce stade : filtres/recherche avancée sur les fiches (lot 3),
-focalisation des tableaux de bord (lot 3), Celery Beat pour le balayage automatique
-nocturne (le moteur est prêt et idempotent ; le déclenchement quotidien automatique
-attend un environnement avec Redis provisionné — en attendant, `POST
-.../alerts/run-scan` permet un déclenchement manuel ou par cron externe).
+focalisation des tableaux de bord (lot 3, livré depuis — voir §10.9).
 
 ### 10.3 Détail du lot 2 livré
 
@@ -592,12 +615,23 @@ comme l'exige le cahier des charges. Testé explicitement
 éditeur pur, les abonnements de toutes les organisations sont visibles, les
 fiches d'aucune ne le sont.
 
-Non fait volontairement : génération de factures en PDF (les données de facture
-sont exposées via l'API ; le rendu PDF est un raffinement possible sans changer
-le modèle), intégration d'un opérateur de paiement mobile (explicitement lot
-ultérieur, §12.4 — le modèle `Payment` est conçu pour l'accueillir sans
-réécriture), téléversement d'une capture du reçu de paiement, annonces de
-l'éditeur aux organisations, statistiques d'activité du service.
+Non fait volontairement : intégration d'un opérateur de paiement mobile
+(explicitement lot ultérieur, §12.4 — le modèle `Payment` est conçu pour
+l'accueillir sans réécriture), téléversement d'une capture du reçu de paiement,
+annonces de l'éditeur aux organisations, statistiques d'activité du service.
+
+**Génération de factures en PDF (2026-08-25)** : `GET
+/organizations/{id}/invoices/{invoice_id}/pdf` (ADMIN de l'organisation
+facturée uniquement — 404, pas 403, pour une facture d'une autre organisation :
+ne pas révéler qu'elle existe). `fpdf2` plutôt que `weasyprint` : ni Pango ni
+Cairo à installer sur l'environnement de déploiement pour un document aussi
+simple qu'une facture à une page. Détail vérifié à l'œil (le fichier généré a
+été relu, pas seulement vérifié par ses en-têtes) : en-tête Registre,
+numéro/date de facture, organisation facturée, offre et période couvertes,
+mode de règlement, montant. Piège rencontré : les polices "core" de fpdf2
+(Helvetica) ne couvrent que le latin-1 — un tiret cadratin (« — ») dans le
+texte fait échouer le rendu (`FPDFUnicodeEncodingException`) ; les caractères
+accentués français restent, eux, dans cette plage et ne posent aucun problème.
 
 ### 10.6 Fondation posée en avance pour le lot 5 (hors-ligne) : identifiants côté client
 

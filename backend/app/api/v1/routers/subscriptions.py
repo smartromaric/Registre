@@ -1,5 +1,7 @@
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +12,7 @@ from app.models.membership import Membership, OrgRole
 from app.models.subscription import Invoice, Payment
 from app.models.user import User
 from app.schemas.subscription import InvoiceOut, PaymentDeclare, PaymentOut, SubscriptionOut
+from app.services.invoice_pdf_service import InvoicePdfNotFoundError, InvoicePdfService
 from app.services.payment_service import PaymentService
 from app.services.subscription_service import SubscriptionNotFoundError, SubscriptionService
 
@@ -59,3 +62,20 @@ async def list_my_invoices(
     stmt = select(Invoice).where(Invoice.organization_id == membership.organization_id).order_by(Invoice.issued_at.desc())
     invoices = (await db.execute(stmt)).scalars().all()
     return [InvoiceOut.model_validate(i) for i in invoices]
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: uuid.UUID,
+    membership: Membership = Depends(require_role(OrgRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        pdf_bytes = await InvoicePdfService(db).render(membership.organization_id, invoice_id)
+    except InvoicePdfNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="facture-{invoice_id}.pdf"'},
+    )
