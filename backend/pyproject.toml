@@ -1,0 +1,60 @@
+[project]
+name = "registre-backend"
+version = "0.1.0"
+description = "API Registre — plateforme de gestion multi-organisations (fiches, stock, echeances, abonnements)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "sqlalchemy[asyncio]>=2.0.35",
+  "asyncpg>=0.30",
+  "psycopg[binary]>=3.2",
+  "alembic>=1.14",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "python-jose[cryptography]>=3.3",
+  "bcrypt>=4.1",
+  "google-auth>=2.35",
+  "requests>=2.32",
+  "httpx>=0.27",
+  "celery>=5.4",
+  "redis>=5.1",
+  "boto3>=1.35",
+  "pillow>=11.0",
+  "python-multipart>=0.0.12",
+  "email-validator>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.7",
+  "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Une seule boucle asyncio pour toute la session de test : le moteur SQLAlchemy est
+# mis en cache (lru_cache) au niveau du module applicatif, il doit donc rester lié
+# à la même boucle d'un test à l'autre.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 115
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008 : FastAPI utilise `Depends(...)` comme valeur par défaut par conception —
+# ce n'est pas le piège "appel de fonction mutable en argument par défaut" visé par B008.
+ignore = ["B008", "UP042"]

@@ -271,13 +271,32 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 
 | Lot | Contenu | Statut |
 | --- | --- | --- |
-| 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | 🔶 |
+| 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | ✅ |
 | 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ⬜ |
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ⬜ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ⬜ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
+
+### 10.1 Détail du lot 0 livré
+
+- Inscription et connexion par e-mail/mot de passe et par compte Google (`/api/v1/auth/*`).
+- Onboarding organisation (nom, pays → devise/fuseau, secteur), essai de 14 jours.
+- Organisations cloisonnées : politique **RLS Postgres réelle** sur `memberships` et
+  `audit_logs`, vérifiée par un test qui prouve qu'une ligne d'une autre organisation
+  est invisible **même au sein de la même transaction** (`tests/test_tenant_isolation.py`).
+- Quatre rôles d'organisation, matrice de permissions (`core/permissions.py`).
+- Invitation et gestion des membres, avec compte "en attente" tant qu'il n'est pas réclamé.
+- Journal d'audit non modifiable (trigger Postgres qui rejette UPDATE/DELETE).
+- Stockage de fichiers à deux implémentations interchangeables (filesystem local avec
+  liens signés HMAC pour le dev, S3/MinIO pour la production).
+- Migrations Alembic appliquées et vérifiées contre une vraie base PostgreSQL locale.
+
+Non fait volontairement à ce stade (arrive avec les lots suivants) : réinitialisation de
+mot de passe par e-mail, 2FA, flux d'acceptation d'invitation par e-mail — la mécanique
+d'invitation existe déjà côté données, l'envoi de l'e-mail arrivera avec le moteur de
+notifications du lot 1 plutôt que d'être dupliqué ici.
 
 ## 11. Manuel utilisateur
 
