@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import { ApiError, parseErrorDetail } from "./errors";
+import { ApiError, parseErrorBody } from "./errors";
 
 export interface ApiRequestInit extends Omit<RequestInit, "headers"> {
   accessToken?: string;
@@ -11,17 +11,23 @@ export interface ApiRequestInit extends Omit<RequestInit, "headers"> {
  * mémoire (jamais un cookie ni un stockage persistant côté client — voir
  * src/lib/session.ts pour la stratégie complète). Réservé aux routes déjà
  * protégées par `get_current_user` / `get_org_context` côté backend
- * (`/auth/me`, `/organizations`, `/auth/organizations`...).
+ * (`/auth/me`, `/organizations`, `/auth/organizations`, et tous les modules
+ * métier ci-dessous — fiches, modèles, documents...).
+ *
+ * Quand `init.body` est un `FormData` (téléversement de document), le
+ * `Content-Type: application/json` par défaut est omis pour laisser le
+ * navigateur poser lui-même le `multipart/form-data; boundary=...` correct.
  */
 export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   const { accessToken, headers, ...rest } = init;
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
 
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...rest,
       headers: {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...headers,
       },
@@ -35,8 +41,8 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   }
 
   if (!response.ok) {
-    const message = await parseErrorDetail(response);
-    throw new ApiError(message, response.status, "http");
+    const parsed = await parseErrorBody(response);
+    throw new ApiError(parsed.message, response.status, "http", parsed.fieldErrors);
   }
 
   if (response.status === 204) {

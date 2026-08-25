@@ -1,11 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, ChevronsUpDown, LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, LogOut, Search } from "lucide-react";
 
+import { AppSidebar, ModelsNavMenu } from "@/components/app-nav";
 import { Logo } from "@/components/brand/logo";
 import { SplashScreen } from "@/components/brand/splash-screen";
+import { CommandPalette } from "@/components/command-palette";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     logout,
   } = useAuth();
 
+  // Palette de commandes (Cmd/Ctrl K — PRODUCT.md §7.2) : un seul endroit qui
+  // possède l'état d'ouverture, partagé par le raccourci clavier global et le
+  // bouton visible de l'en-tête.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // Tant que la session, la liste d'organisations ou l'organisation courante ne
   // sont pas connues, on affiche un état de patience — jamais un shell vide qui
   // laisserait croire que "aucune organisation" est un résultat définitif.
@@ -50,11 +67,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href="/" aria-label="Registre — tableau de bord" className="shrink-0">
-            <Logo size="sm" />
-          </Link>
+        <div className="mx-auto flex h-14 max-w-[92rem] items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-1">
+            <ModelsNavMenu />
+            <Link href="/" aria-label="Registre — tableau de bord" className="shrink-0">
+              <Logo size="sm" />
+            </Link>
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -89,6 +110,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </DropdownMenu>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden text-muted-foreground sm:flex"
+              onClick={() => setPaletteOpen(true)}
+            >
+              <Search className="size-3.5" />
+              Rechercher
+              <kbd className="ml-1 rounded border border-border bg-muted px-1 font-mono text-[0.65rem]">Ctrl K</kbd>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="sm:hidden"
+              aria-label="Palette de commandes"
+              onClick={() => setPaletteOpen(true)}
+            >
+              <Search className="size-4" />
+            </Button>
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -116,7 +156,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
+      <div className="mx-auto flex w-full max-w-[92rem] flex-1">
+        <AppSidebar />
+        <main className="w-full min-w-0 flex-1 px-4 py-8 sm:px-6">{children}</main>
+      </div>
     </div>
   );
 }

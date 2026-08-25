@@ -285,7 +285,7 @@ Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, pu
 | Frontend | Contenu | Statut |
 | --- | --- | --- |
 | Fondations | Next.js + design system clair/sombre + auth (Google et e-mail) + onboarding + coquille applicative | ✅ |
-| Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ⬜ |
+| Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ✅ |
 | Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ⬜ |
 | Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ⬜ |
 | Abonnements/éditeur | Écrans de facturation, espace éditeur | ⬜ |
@@ -518,6 +518,37 @@ Corrigé maintenant plutôt que d'attendre le lot 5, précisément pour ne pas a
   conditions réelles via l'API : soumettre deux fois la même création avec le
   même identifiant ne produit jamais de doublon, ni pour une fiche ni pour un
   mouvement de stock.
+
+### 10.7 Frontend — moteur de fiches (interface)
+
+Détail complet dans `frontend/README.md`. Points notables :
+
+- **Rendu de champ générique** (`components/fiches/field-renderer.tsx` en
+  saisie, `field-value.tsx` en lecture) : les 14 types du moteur de fiches sont
+  gérés de façon exhaustive par un seul composant, jamais un formulaire codé en
+  dur par modèle — un champ personnalisé ajouté par une organisation obtient
+  automatiquement le bon contrôle de saisie.
+- **Constructeur de modèles** : création, et maintenant modification/
+  suppression/réorganisation de champs déjà enregistrés
+  (`components/fiches/existing-field-list.tsx`), branché sur les routes
+  `PATCH`/`DELETE`/`PUT .../reorder` du §10.2. La clé technique et le type d'un
+  champ existant restent verrouillés dans l'éditeur (`lockKey`), pour ne
+  jamais laisser croire qu'ils peuvent changer sans casser les fiches déjà
+  écrites — cohérent avec la même règle imposée côté backend.
+- **Documents et photos** : une pièce jointe reste consultable et ouvrable
+  depuis une fiche à tout moment, même longtemps après le téléversement — son
+  URL signée est relue à chaque affichage (`getDocument`/`listDocuments`,
+  §10.2) plutôt que mise en cache avec expiration devinée côté client.
+
+**Correctif appliqué après la livraison initiale de cette interface par un
+agent dédié** : le constructeur de modèles et l'affichage des pièces jointes
+avaient été construits contre une version antérieure du backend (avant les
+routes `PATCH`/`DELETE fields` et `GET documents` du §10.2) — chaque
+composant le documentait honnêtement plutôt que de le masquer (bannière
+« pas encore possible », pièce jointe explicitement marquée « lien expiré »
+passé 5 minutes). Une fois les routes manquantes ajoutées côté backend,
+l'interface a été rebranchée dessus plutôt que laissée à documenter une
+limitation qui n'existait plus.
 
 ## 11. Manuel utilisateur
 
