@@ -11,14 +11,21 @@ from app.schemas.auth import (
     InvitationAcceptRequest,
     InvitationInfoOut,
     LoginRequest,
+    LoginResult,
     RefreshRequest,
     ResetPasswordRequest,
     SignupRequest,
     TokenPairOut,
+    TwoFactorDisableRequest,
+    TwoFactorEnableOut,
+    TwoFactorEnableRequest,
+    TwoFactorSetupOut,
+    TwoFactorVerifyRequest,
 )
 from app.schemas.organization import OrganizationCreate, OrganizationOut, OrganizationWithRole
 from app.schemas.user import UserOut
 from app.services.auth_service import AuthError, AuthService, GoogleNotConfiguredError
+from app.services.two_factor_service import TwoFactorError, TwoFactorService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,15 +43,20 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
     )
 
 
-@router.post("/login", response_model=AuthResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+@router.post("/login", response_model=LoginResult)
+async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> LoginResult:
     service = AuthService(db)
     try:
         user = await service.login_with_password(payload.email, payload.password)
     except AuthError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
+
+    if user.totp_enabled:
+        challenge_token = TwoFactorService(db).create_challenge(user)
+        return LoginResult(requires_2fa=True, challenge_token=challenge_token)
+
     tokens = service.issue_tokens(user)
-    return AuthResponse(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
+    return LoginResult(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
 
 
 @router.post("/google", response_model=AuthResponse)
@@ -122,6 +134,56 @@ async def accept_invitation(payload: InvitationAcceptRequest, db: AsyncSession =
     except AuthError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     tokens = service.issue_tokens(user)
+    return AuthResponse(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
+
+
+# --- authentification à deux facteurs (TOTP) ----------------------------------------
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupOut)
+async def setup_two_factor(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> TwoFactorSetupOut:
+    secret, otpauth_uri, qr_code_svg = await TwoFactorService(db).begin_setup(user)
+    return TwoFactorSetupOut(secret=secret, otpauth_uri=otpauth_uri, qr_code_svg=qr_code_svg)
+
+
+@router.post("/2fa/enable", response_model=TwoFactorEnableOut)
+async def enable_two_factor(
+    payload: TwoFactorEnableRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorEnableOut:
+    try:
+        backup_codes = await TwoFactorService(db).enable(user, payload.code)
+    except TwoFactorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return TwoFactorEnableOut(backup_codes=backup_codes)
+
+
+@router.post("/2fa/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def disable_two_factor(
+    payload: TwoFactorDisableRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await TwoFactorService(db).disable(user, payload.password)
+    except TwoFactorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+@router.post("/2fa/verify", response_model=AuthResponse)
+async def verify_two_factor(payload: TwoFactorVerifyRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+    """Deuxième étape de connexion pour un compte à 2FA activée — voir `login`
+    ci-dessus, qui renvoie `challenge_token` au lieu de jetons directement.
+    """
+    service = TwoFactorService(db)
+    try:
+        user = await service.verify_challenge(payload.challenge_token, payload.code)
+    except TwoFactorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    tokens = AuthService(db).issue_tokens(user)
     return AuthResponse(tokens=TokenPairOut(**tokens.__dict__), user=UserOut.model_validate(user))
 
 

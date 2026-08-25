@@ -11,3 +11,4 @@ class UserOut(BaseModel):
     full_name: str
     is_active: bool
     is_platform_admin: bool
+    totp_enabled: bool

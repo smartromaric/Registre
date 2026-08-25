@@ -45,6 +45,16 @@ def create_password_reset_token(user_id: uuid.UUID) -> str:
     return _create_token(user_id, "password_reset", timedelta(hours=1))
 
 
+def create_two_factor_challenge_token(user_id: uuid.UUID) -> str:
+    """Émis une fois le mot de passe vérifié pour un compte à 2FA activée —
+    prouve que ce jeton correspond bien à quelqu'un qui vient de réussir la
+    première étape, sans encore délivrer de jeton d'accès/rafraîchissement
+    tant que le second facteur n'est pas confirmé. Volontairement très court
+    (5 min) : ce n'est qu'un pont entre les deux étapes d'une même connexion.
+    """
+    return _create_token(user_id, "two_factor_challenge", timedelta(minutes=5))
+
+
 def create_invitation_token(user_id: uuid.UUID, organization_id: uuid.UUID) -> str:
     """§4.4 : le lien d'invitation par e-mail. Volontairement long à vivre (14
     jours, comme la durée de rétention la plus courte du produit) — un membre

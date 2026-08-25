@@ -315,8 +315,29 @@ Détail de ce qui est fait/pas fait dans `frontend/README.md`.
   liens signés HMAC pour le dev, S3/MinIO pour la production).
 - Migrations Alembic appliquées et vérifiées contre une vraie base PostgreSQL locale.
 
-Non fait volontairement à ce stade : 2FA (voir §10.11 pour le reste des raffinements
-d'authentification, ajoutés après coup une fois le moteur de notifications disponible).
+**2FA (2026-08-25)** : TOTP (RFC 6238, compatible Google Authenticator/Authy) plutôt
+que par SMS — aucun coût d'envoi récurrent, aucune dépendance à un opérateur.
+`POST /auth/2fa/setup` (secret + QR code SVG, ne verrouille rien tant qu'aucun code
+n'est confirmé) → `POST /auth/2fa/enable` (confirme, active, renvoie 10 codes de
+secours à usage unique **en clair une seule fois**, seule leur empreinte bcrypt est
+conservée). `POST /auth/login` renvoie désormais `requires_2fa` + `challenge_token`
+(jeton dédié, 5 min) au lieu des jetons directement pour un compte protégé — forme
+volontairement additive (`tokens`/`user` restent toujours renseignés exactement comme
+avant pour l'immense majorité des comptes, 2FA non activée) pour ne rompre aucun appelant
+existant. `POST /auth/2fa/verify` accepte un code TOTP ou un code de secours.
+`POST /auth/2fa/disable` exige le mot de passe (pas seulement la session active) :
+désactiver la 2FA affaiblit durablement la sécurité du compte, ne doit jamais
+dépendre d'un seul jeton d'accès déjà en main (session volée). Testé par
+`tests/test_two_factor.py` (6 tests, y compris l'usage unique d'un code de secours).
+**Limite assumée de cet environnement de développement** : les scripts de fumée
+manuels contre un serveur local ont été perturbés par une machine visiblement sous
+charge (plusieurs agents en arrière-plan + une suite de tests longue tournant en
+parallèle), avec des échecs transitoires jamais reproduits deux fois de suite ni
+jamais observés dans la suite pytest déterministe — même classe de flakiness que
+d'autres épisodes déjà rencontrés cette session (jamais un vrai défaut de code
+confirmé). La vérification en conditions réelles s'appuie donc ici sur la suite
+automatisée, plus rigoureuse (session/transaction partagée réelle), plutôt que sur
+un script de fumée qui n'a pas pu tourner de façon stable.
 
 **Raffinements ajoutés a posteriori (2026-08-25) — réinitialisation de mot de passe et
 acceptation d'invitation par e-mail :**
