@@ -4,8 +4,8 @@
   "description": "Registre — le socle unique pour suivre vos actifs et vos stocks : véhicules, gaz, vêtements, personnel et plus, sans tableur ni classeur.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fbfaff",
-  "theme_color": "#fbfaff",
+  "background_color": "#fdfbfa",
+  "theme_color": "#fdfbfa",
   "icons": [
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

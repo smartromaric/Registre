@@ -48,10 +48,6 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn(
           "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
@@ -59,7 +55,18 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        {/* Titre/description à l'intérieur de DialogContent, pas à côté : Radix
+            cherche le libellé accessible DANS le contenu de la boîte de dialogue. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {/* Racine cmdk obligatoire : `CommandInput`/`CommandList`/`CommandItem`
+            lisent tous le store de cmdk par le contexte de ce composant. Sans
+            lui, `CommandPrimitive.Input` plantait sur un store `undefined`
+            (« Cannot read properties of undefined (reading 'subscribe') ») —
+            la palette de commandes était donc inutilisable. */}
+        <Command>{children}</Command>
       </DialogContent>
     </Dialog>
   )

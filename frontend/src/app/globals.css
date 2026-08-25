@@ -69,48 +69,85 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Charte couleur « corail » (2026-08-25, demande client : abandon du bleu).
+ * Palette de marque fournie, convertie en OKLCH depuis les valeurs sRGB exactes :
+ *   IndianRed   #CD5C5C → oklch(0.615 0.144 22)
+ *   LightCoral  #F08080 → oklch(0.725 0.138 21)
+ *   Salmon      #FA8072 → oklch(0.735 0.152 28)   ← teinte de marque (28°)
+ *   DarkSalmon  #E9967A → oklch(0.751 0.108 39)
+ *   LightSalmon #FFA07A → oklch(0.794 0.125 42)
+ *
+ * Deux règles qui expliquent les écarts avec la liste brute :
+ *
+ * 1. **Lisibilité avant fidélité littérale.** Les cinq couleurs fournies sont
+ *    toutes claires (L 0,61 → 0,79) : posées telles quelles en fond de bouton
+ *    en thème clair, aucune ne porte du texte blanc lisible. Le thème clair
+ *    utilise donc un corail assombri À LA MÊME TEINTE (28°) ; le thème sombre,
+ *    lui, utilise le Salmon exact, qui y est parfaitement lisible.
+ *
+ * 2. **La marque et l'alarme ne peuvent pas être la même couleur.** La palette
+ *    est entièrement rouge-orangée, or le produit doit distinguer d'un coup
+ *    d'œil « action de marque » et « échéance en retard ». Le corail de marque
+ *    reste donc à 28°, tandis que `--destructive` descend à 15° avec une
+ *    lightness nettement plus basse et une chroma plus haute (il « alarme »),
+ *    `--warning` remonte à 65° (ambre franchement jaune-orangé) et `--success`
+ *    part sur le vert-sarcelle, complémentaire du corail. Rappel : la couleur
+ *    n'est jamais seule porteuse d'un état (PRODUCT.md §7.2) — un mot
+ *    l'accompagne toujours, ce qui reste le vrai garde-fou.
+ *
+ * Neutres volontairement tièdes (teinte ~40°, chroma très faible) plutôt que
+ * gris bleutés : un gris froid sous un accent corail donne un rendu
+ * « pas choisi ».
+ */
 :root {
-  --background: oklch(0.985 0.004 264);
-  --foreground: oklch(0.19 0.03 264);
+  --background: oklch(0.99 0.005 45);
+  --foreground: oklch(0.2 0.015 30);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.03 264);
+  --card-foreground: oklch(0.2 0.015 30);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.03 264);
-  --primary: oklch(0.46 0.19 262);
-  --primary-foreground: oklch(0.98 0.012 262);
-  --secondary: oklch(0.95 0.018 262);
-  --secondary-foreground: oklch(0.32 0.08 262);
-  --muted: oklch(0.955 0.006 264);
-  --muted-foreground: oklch(0.48 0.02 264);
-  --accent: oklch(0.951 0.03 83);
-  --accent-foreground: oklch(0.32 0.07 70);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.98 0.01 27);
-  --border: oklch(0.9 0.008 264);
-  --input: oklch(0.9 0.008 264);
-  --ring: oklch(0.6 0.14 262);
-  --chart-1: oklch(0.55 0.18 262);
-  --chart-2: oklch(0.72 0.14 80);
-  --chart-3: oklch(0.6 0.14 155);
-  --chart-4: oklch(0.62 0.19 25);
-  --chart-5: oklch(0.55 0.02 264);
+  --popover-foreground: oklch(0.2 0.015 30);
+  --primary: oklch(0.6 0.165 27);
+  --primary-foreground: oklch(0.99 0.01 30);
+  --secondary: oklch(0.96 0.015 35);
+  --secondary-foreground: oklch(0.35 0.08 28);
+  --muted: oklch(0.965 0.006 45);
+  --muted-foreground: oklch(0.5 0.02 40);
+  --accent: oklch(0.95 0.03 45);
+  --accent-foreground: oklch(0.38 0.09 35);
+  --destructive: oklch(0.51 0.2 15);
+  --destructive-foreground: oklch(0.99 0.01 15);
+  --border: oklch(0.91 0.008 40);
+  --input: oklch(0.91 0.008 40);
+  --ring: oklch(0.6 0.165 27);
+  /* Série de graphiques : la marque d'abord, puis des teintes assez écartées
+     pour rester distinguables côte à côte dans un même graphique. */
+  --chart-1: oklch(0.6 0.165 27);
+  --chart-2: oklch(0.72 0.15 65);
+  --chart-3: oklch(0.56 0.11 165);
+  --chart-4: oklch(0.615 0.144 22);
+  --chart-5: oklch(0.55 0.02 40);
   --radius: 0.75rem;
-  --sidebar: oklch(0.975 0.006 264);
-  --sidebar-foreground: oklch(0.19 0.03 264);
-  --sidebar-primary: oklch(0.46 0.19 262);
-  --sidebar-primary-foreground: oklch(0.98 0.012 262);
-  --sidebar-accent: oklch(0.951 0.03 83);
-  --sidebar-accent-foreground: oklch(0.32 0.07 70);
-  --sidebar-border: oklch(0.9 0.008 264);
-  --sidebar-ring: oklch(0.6 0.14 262);
+  --sidebar: oklch(0.975 0.006 45);
+  --sidebar-foreground: oklch(0.2 0.015 30);
+  --sidebar-primary: oklch(0.6 0.165 27);
+  --sidebar-primary-foreground: oklch(0.99 0.01 30);
+  --sidebar-accent: oklch(0.95 0.03 45);
+  --sidebar-accent-foreground: oklch(0.38 0.09 35);
+  --sidebar-border: oklch(0.91 0.008 40);
+  --sidebar-ring: oklch(0.6 0.165 27);
   /* Jetons Registre */
-  --veil: oklch(0.19 0.03 264);
-  --gold: oklch(0.74 0.15 80);
-  --gold-foreground: oklch(0.24 0.05 70);
-  --success: oklch(0.58 0.14 155);
-  --success-foreground: oklch(0.98 0.01 155);
-  --warning: oklch(0.7 0.16 55);
-  --warning-foreground: oklch(0.2 0.06 55);
+  --veil: oklch(0.2 0.02 30);
+  /* `--gold` porte désormais le pêche LightSalmon (#FFA07A) : accent chaud
+     secondaire de la marque, jamais un état. Le nom du jeton est conservé —
+     il est référencé dans une dizaine de composants, un renommage serait un
+     changement mécanique sans rapport avec cette refonte. */
+  --gold: oklch(0.794 0.125 42);
+  --gold-foreground: oklch(0.28 0.06 40);
+  --success: oklch(0.56 0.11 165);
+  --success-foreground: oklch(0.99 0.01 165);
+  --warning: oklch(0.72 0.15 65);
+  --warning-foreground: oklch(0.24 0.06 60);
 }
 
 .dark {
@@ -118,46 +155,48 @@
      quasi noir plutôt que le gris ardoise moyen d'avant. Le contraste
      texte/fond en sort MEILLEUR (blanc cassé sur quasi-noir), pas dégradé —
      ce n'est pas un compromis accessibilité contre esthétique. */
-  --background: oklch(0.1 0.012 264);
-  --foreground: oklch(0.96 0.006 264);
-  --card: oklch(0.145 0.016 264);
-  --card-foreground: oklch(0.96 0.006 264);
-  --popover: oklch(0.155 0.017 264);
-  --popover-foreground: oklch(0.96 0.006 264);
-  --primary: oklch(0.73 0.17 262);
-  --primary-foreground: oklch(0.14 0.03 262);
-  --secondary: oklch(0.22 0.024 264);
-  --secondary-foreground: oklch(0.93 0.01 264);
-  --muted: oklch(0.18 0.016 264);
-  --muted-foreground: oklch(0.66 0.018 264);
-  --accent: oklch(0.27 0.05 78);
-  --accent-foreground: oklch(0.9 0.05 80);
-  --destructive: oklch(0.7 0.19 25);
-  --destructive-foreground: oklch(0.14 0.03 25);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.73 0.17 262);
-  --chart-1: oklch(0.73 0.17 262);
-  --chart-2: oklch(0.78 0.13 80);
-  --chart-3: oklch(0.68 0.14 155);
-  --chart-4: oklch(0.68 0.17 25);
-  --chart-5: oklch(0.75 0.015 264);
-  --sidebar: oklch(0.08 0.012 264);
-  --sidebar-foreground: oklch(0.94 0.008 264);
-  --sidebar-primary: oklch(0.73 0.17 262);
-  --sidebar-primary-foreground: oklch(0.14 0.03 262);
-  --sidebar-accent: oklch(0.27 0.05 78);
-  --sidebar-accent-foreground: oklch(0.9 0.05 80);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.73 0.17 262);
+  --background: oklch(0.12 0.008 35);
+  --foreground: oklch(0.96 0.006 45);
+  --card: oklch(0.16 0.012 35);
+  --card-foreground: oklch(0.96 0.006 45);
+  --popover: oklch(0.175 0.013 35);
+  --popover-foreground: oklch(0.96 0.006 45);
+  /* Salmon #FA8072 exact — parfaitement lisible sur fond sombre, c'est ici que
+     la couleur de marque fournie s'utilise telle quelle. */
+  --primary: oklch(0.735 0.152 28);
+  --primary-foreground: oklch(0.18 0.03 28);
+  --secondary: oklch(0.235 0.018 35);
+  --secondary-foreground: oklch(0.93 0.01 45);
+  --muted: oklch(0.2 0.012 35);
+  --muted-foreground: oklch(0.68 0.015 45);
+  --accent: oklch(0.28 0.05 40);
+  --accent-foreground: oklch(0.85 0.08 45);
+  --destructive: oklch(0.64 0.19 15);
+  --destructive-foreground: oklch(0.98 0.01 15);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.735 0.152 28);
+  --chart-1: oklch(0.735 0.152 28);
+  --chart-2: oklch(0.78 0.14 68);
+  --chart-3: oklch(0.68 0.12 165);
+  --chart-4: oklch(0.725 0.138 21);
+  --chart-5: oklch(0.75 0.015 45);
+  --sidebar: oklch(0.1 0.008 35);
+  --sidebar-foreground: oklch(0.94 0.008 45);
+  --sidebar-primary: oklch(0.735 0.152 28);
+  --sidebar-primary-foreground: oklch(0.18 0.03 28);
+  --sidebar-accent: oklch(0.28 0.05 40);
+  --sidebar-accent-foreground: oklch(0.85 0.08 45);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.735 0.152 28);
   /* Jetons Registre */
-  --veil: oklch(0.04 0.01 264);
-  --gold: oklch(0.78 0.14 80);
-  --gold-foreground: oklch(0.2 0.05 70);
-  --success: oklch(0.68 0.14 155);
-  --success-foreground: oklch(0.12 0.03 155);
-  --warning: oklch(0.76 0.15 55);
-  --warning-foreground: oklch(0.18 0.05 55);
+  --veil: oklch(0.09 0.01 30);
+  --gold: oklch(0.794 0.125 42);
+  --gold-foreground: oklch(0.2 0.05 40);
+  --success: oklch(0.68 0.12 165);
+  --success-foreground: oklch(0.12 0.03 165);
+  --warning: oklch(0.78 0.14 68);
+  --warning-foreground: oklch(0.18 0.05 60);
 }
 
 @layer base {

@@ -177,9 +177,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[92rem] flex-1">
+      {/* La barre latérale est volontairement HORS du conteneur centré : collée
+          au bord gauche de la fenêtre, elle ne laisse plus la bande vide qui
+          apparaissait sur écran large. Seul le contenu reste borné et centré. */}
+      <div className="flex w-full flex-1">
         <AppSidebar />
-        <main className="w-full min-w-0 flex-1 px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-[80rem] flex-1 px-4 py-8 sm:px-6">{children}</main>
       </div>
     </div>
   );
