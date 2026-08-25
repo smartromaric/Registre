@@ -279,6 +279,19 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
 
+Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, puis un
+écran par lot backend livré) :
+
+| Frontend | Contenu | Statut |
+| --- | --- | --- |
+| Fondations | Next.js + design system clair/sombre + auth (Google et e-mail) + onboarding + coquille applicative | ✅ |
+| Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ⬜ |
+| Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ⬜ |
+| Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ⬜ |
+| Abonnements/éditeur | Écrans de facturation, espace éditeur | ⬜ |
+
+Détail de ce qui est fait/pas fait dans `frontend/README.md`.
+
 ### 10.1 Détail du lot 0 livré
 
 - Inscription et connexion par e-mail/mot de passe et par compte Google (`/api/v1/auth/*`).
