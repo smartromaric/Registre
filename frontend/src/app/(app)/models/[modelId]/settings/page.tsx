@@ -30,6 +30,7 @@ import { ApiError } from "@/lib/api/errors";
 import { addFieldDefinition, getModelDefinition, updateModelDefinition } from "@/lib/api/model-definitions";
 import type { FieldDefinitionCreate, ModelDefinitionOut } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes-guard";
 
 const settingsSchema = z.object({
   name_singular: z.string().min(1, "obligatoire").max(80, "80 caractères maximum."),
@@ -121,6 +122,19 @@ function ModelSettingsForm({
     defaultValues: toFormValues(model),
   });
 
+  // Garde-fou "modifications non enregistrées" (voir lib/use-unsaved-changes-guard.tsx).
+  // Limite connue et acceptée : `isDirty` ne voit que les champs React Hook
+  // Form (nom, statuts, champ-titre) — un changement d'icône ou de couleur
+  // seul, sans toucher un champ RHF, ne déclenche pas le garde-fou. On garde
+  // volontairement `formState.isDirty` comme unique source de vérité pour ces
+  // deux sélecteurs plutôt que d'ajouter un second mécanisme de suivi rien que
+  // pour eux. En revanche les nouveaux champs mis en attente (`newFields`) sont
+  // une perte de données bien plus consequente si l'utilisateur navigue sans
+  // cliquer "Enregistrer" : ils comptent explicitement dans la condition.
+  const { dialog: unsavedChangesDialog } = useUnsavedChangesGuard(
+    form.formState.isDirty || newFields.length > 0,
+  );
+
   const updateMutation = useMutation({
     mutationFn: (values: SettingsValues) =>
       updateModelDefinition(accessToken, organizationId, model.id, {
@@ -138,6 +152,10 @@ function ModelSettingsForm({
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKey, updated);
+      // Repart d'un formulaire "propre" — voir le même commentaire dans
+      // record-form.tsx : sans ce reset, `isDirty` resterait vrai après un
+      // enregistrement réussi.
+      form.reset(toFormValues(updated));
       toast.success("Modèle mis à jour.");
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Mise à jour impossible."),
@@ -165,6 +183,7 @@ function ModelSettingsForm({
 
   return (
     <div className="max-w-2xl space-y-8">
+      {unsavedChangesDialog}
       <div>
         <Button variant="ghost" size="sm" className="-ml-2" asChild>
           <Link href={`/models/${model.id}`}>

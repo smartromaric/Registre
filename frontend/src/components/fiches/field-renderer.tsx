@@ -38,21 +38,38 @@
  * peut l'utiliser tel quel pour les champs personnalisés d'un article.
  */
 
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
 import { useController, type Control, type FieldValues, type Path } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  Camera,
+  ChevronsUpDown,
   FileText,
   Image as ImageIcon,
   Loader2,
   Navigation,
+  RefreshCw,
+  Search,
   Upload,
+  VideoOff,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 import { FormField } from "@/components/form/form-field";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -67,12 +84,16 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_UPLOAD_BYTES, uploadDocument } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/errors";
+import { getModelDefinition } from "@/lib/api/model-definitions";
+import { getRecord } from "@/lib/api/records";
+import { searchRecords } from "@/lib/api/search";
 import type {
   DocumentFieldValue,
   DueDateFieldValue,
   FieldDefinitionOut,
   PhotoFieldValue,
   PositionFieldValue,
+  RecordLinkFieldValue,
 } from "@/lib/api/types";
 import { formatFileSize, getCachedDocument, rememberDocument } from "@/lib/documents-cache";
 import { cn } from "@/lib/utils";
@@ -157,16 +178,25 @@ export function FieldRenderer({ field, control, name, disabled, uploadContext }:
           id={id}
           label={field.label}
           error={errorMessage}
-          hint={field.help_text ?? "Saisie manuelle — le scan par caméra n'est pas encore disponible."}
+          hint={field.help_text ?? "Saisie manuelle, avec un assistant caméra pour vous aider à lire un code difficile."}
         >
-          <Input
-            id={id}
-            value={typeof rhf.value === "string" ? rhf.value : ""}
-            onChange={(e) => rhf.onChange(e.target.value)}
-            onBlur={rhf.onBlur}
-            disabled={inputDisabled}
-            aria-invalid={Boolean(errorMessage)}
-          />
+          <div className="flex items-center gap-1.5">
+            <Input
+              id={id}
+              value={typeof rhf.value === "string" ? rhf.value : ""}
+              onChange={(e) => rhf.onChange(e.target.value)}
+              onBlur={rhf.onBlur}
+              disabled={inputDisabled}
+              aria-invalid={Boolean(errorMessage)}
+              className="flex-1"
+            />
+            <CodeScannerButton
+              id={id}
+              value={typeof rhf.value === "string" ? rhf.value : ""}
+              onChange={rhf.onChange}
+              disabled={inputDisabled}
+            />
+          </div>
         </FormField>
       );
 
@@ -269,33 +299,21 @@ export function FieldRenderer({ field, control, name, disabled, uploadContext }:
       );
 
     case "record_link": {
-      const recordId =
+      const value: RecordLinkFieldValue | undefined =
         rhf.value && typeof rhf.value === "object" && "record_id" in rhf.value
-          ? String((rhf.value as { record_id?: unknown }).record_id ?? "")
-          : "";
+          ? (rhf.value as RecordLinkFieldValue)
+          : undefined;
       return (
-        <FormField
+        <RecordLinkFieldControl
           id={id}
-          label={field.label}
+          field={field}
+          value={value}
+          onChange={(v) => rhf.onChange(v ?? undefined)}
+          disabled={inputDisabled}
           error={errorMessage}
-          hint={
-            field.help_text ??
-            "Identifiant (UUID) de la fiche liée — la sélection visuelle n'est pas encore disponible."
-          }
-        >
-          <Input
-            id={id}
-            value={recordId}
-            onChange={(e) => {
-              const v = e.target.value.trim();
-              rhf.onChange(v ? { record_id: v } : undefined);
-            }}
-            onBlur={rhf.onBlur}
-            disabled={inputDisabled}
-            aria-invalid={Boolean(errorMessage)}
-            placeholder="00000000-0000-0000-0000-000000000000"
-          />
-        </FormField>
+          organizationId={uploadContext?.organizationId}
+          accessToken={uploadContext?.accessToken}
+        />
       );
     }
 
@@ -540,6 +558,443 @@ function PositionFieldControl({
         </Button>
       </div>
     </FormField>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lien vers une fiche — sélecteur visuel (recherche globale, cahier des
+// charges §9) plutôt qu'une saisie manuelle d'UUID.
+// ---------------------------------------------------------------------------
+
+/** Résout le titre affichable d'une fiche liée à partir de son id — même
+ * requête (fiche puis modèle, pour lire `title_field_key`) que
+ * `RecordLinkValue` dans `field-value.tsx` (vue lecture seule), ici pour
+ * afficher la sélection courante du sélecteur plutôt qu'un UUID brut. */
+function useLinkedRecordLabel(recordId: string | undefined, organizationId?: string, accessToken?: string) {
+  return useQuery({
+    queryKey: ["record-link-picker", organizationId, recordId],
+    queryFn: async () => {
+      const record = await getRecord(accessToken as string, organizationId as string, recordId as string);
+      const model = await getModelDefinition(accessToken as string, organizationId as string, record.model_definition_id);
+      const title =
+        model.title_field_key && typeof record.data[model.title_field_key] === "string"
+          ? (record.data[model.title_field_key] as string)
+          : `Fiche ${record.id.slice(0, 8)}`;
+      return { title, modelName: model.name_singular };
+    },
+    enabled: Boolean(recordId && organizationId && accessToken),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+function RecordLinkFieldControl({
+  id,
+  field,
+  value,
+  onChange,
+  disabled,
+  error,
+  organizationId,
+  accessToken,
+}: {
+  id: string;
+  field: FieldDefinitionOut;
+  value: RecordLinkFieldValue | undefined;
+  onChange: (value: RecordLinkFieldValue | null) => void;
+  disabled: boolean;
+  error?: string;
+  organizationId?: string;
+  accessToken?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(debounceRef.current ?? undefined), []);
+
+  const canSearch = Boolean(organizationId && accessToken);
+  const selected = useLinkedRecordLabel(value?.record_id, organizationId, accessToken);
+
+  const searchResults = useQuery({
+    queryKey: ["search", organizationId, debouncedQuery],
+    queryFn: () => searchRecords(accessToken as string, organizationId as string, { q: debouncedQuery }),
+    enabled: open && canSearch && debouncedQuery.length > 0,
+    staleTime: 15_000,
+  });
+
+  function handleQueryChange(next: string) {
+    setQuery(next);
+    clearTimeout(debounceRef.current ?? undefined);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(next.trim()), 300);
+  }
+
+  function resetSearch() {
+    setQuery("");
+    setDebouncedQuery("");
+    clearTimeout(debounceRef.current ?? undefined);
+  }
+
+  const selectedLabel = !value?.record_id
+    ? null
+    : selected.isLoading
+      ? "Chargement…"
+      : (selected.data?.title ?? `Fiche (${value.record_id.slice(0, 8)}…)`);
+
+  return (
+    <FormField
+      id={id}
+      label={field.label}
+      error={error}
+      hint={field.help_text ?? "Recherchez une fiche existante à lier, tous modèles confondus."}
+    >
+      <div className="flex items-center gap-1.5">
+        <Popover
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) resetSearch();
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              id={id}
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              aria-invalid={Boolean(error)}
+              className="w-full justify-between font-normal"
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+                {selectedLabel ? (
+                  <span className="truncate">{selectedLabel}</span>
+                ) : (
+                  <span className="truncate text-muted-foreground">Sélectionnez une fiche…</span>
+                )}
+                {value?.record_id && selected.data ? (
+                  <Badge variant="secondary" className="shrink-0">
+                    {selected.data.modelName}
+                  </Badge>
+                ) : null}
+              </span>
+              <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 gap-0 p-0">
+            <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-2">
+              <Search className="size-3.5 shrink-0 text-muted-foreground" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                placeholder="Rechercher une fiche…"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto p-1.5">
+              {!canSearch ? (
+                <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  Recherche indisponible pour le moment.
+                </p>
+              ) : debouncedQuery.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  Tapez au moins un caractère pour rechercher.
+                </p>
+              ) : searchResults.isLoading ? (
+                <p className="flex items-center justify-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Recherche…
+                </p>
+              ) : searchResults.isError ? (
+                <p className="px-2 py-3 text-center text-xs text-destructive">
+                  Recherche impossible pour le moment.
+                </p>
+              ) : (searchResults.data ?? []).length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs text-muted-foreground">Aucun résultat.</p>
+              ) : (
+                <div className="space-y-0.5">
+                  {(searchResults.data ?? []).map((hit) => (
+                    <button
+                      key={hit.record_id}
+                      type="button"
+                      onClick={() => {
+                        onChange({ record_id: hit.record_id });
+                        setOpen(false);
+                        resetSearch();
+                      }}
+                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{hit.title}</span>
+                      <Badge variant="secondary" className="shrink-0">
+                        {hit.model_name}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+        {value?.record_id && !disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Retirer la fiche liée"
+            onClick={() => onChange(null)}
+          >
+            <X className="size-3.5" />
+          </Button>
+        ) : null}
+      </div>
+    </FormField>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Code / référence — assistant caméra (aide visuelle, pas de lecture
+// automatique de code-barres).
+//
+// Décision de périmètre : pas de bibliothèque de décodage (zxing, quagga...) —
+// disproportionné pour cette passe de polish. À la place, un flux caméra en
+// direct (et une image figée à zoomer si le code est petit) aide l'utilisateur
+// à *lire* le code, qu'il saisit ensuite lui-même — jamais de reconnaissance
+// automatique simulée. Le bouton et les textes le disent explicitement,
+// conformément à la convention d'honnêteté du reste de l'app (voir
+// `state-views.tsx`).
+// ---------------------------------------------------------------------------
+
+function CodeScannerButton({
+  id,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button type="button" variant="outline" size="icon" disabled={disabled} onClick={() => setOpen(true)} aria-label="Assistant caméra">
+        <Camera className="size-3.5" />
+      </Button>
+      {open ? (
+        <CodeScannerDialog id={id} open={open} onOpenChange={setOpen} value={value} onChange={onChange} />
+      ) : null}
+    </>
+  );
+}
+
+type CameraState = "requesting" | "live" | "frozen" | "denied" | "unavailable" | "error";
+
+/** Vérification d'exécution — pas seulement de type : certains navigateurs
+ * plus anciens (ou un contexte non sécurisé, http non local) n'exposent
+ * réellement pas `navigator.mediaDevices`/`getUserMedia` même si les types DOM
+ * de TypeScript les déclarent toujours présents. */
+function hasCameraSupport(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getUserMedia === "function";
+}
+
+function CodeScannerDialog({
+  id,
+  open,
+  onOpenChange,
+  value,
+  onChange,
+}: {
+  id: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  // `CodeScannerButton` ne monte ce composant que pendant que `open` est vrai
+  // (voir `{open ? <CodeScannerDialog ... /> : null}`) — un nouveau montage à
+  // chaque ouverture, donc l'état initial ci-dessous est déjà "frais" sans
+  // avoir besoin de le réinitialiser depuis un effet à l'ouverture.
+  const [state, setState] = useState<CameraState>(() => (hasCameraSupport() ? "requesting" : "unavailable"));
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!hasCameraSupport()) return;
+    let cancelled = false;
+
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setState("live");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const name = err instanceof DOMException ? err.name : "";
+        setState(name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error");
+      });
+
+    return () => {
+      cancelled = true;
+      stopStream();
+    };
+  }, [stopStream]);
+
+  function captureFrame() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.videoWidth === 0) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setSnapshot(canvas.toDataURL("image/jpeg", 0.92));
+    setZoom(1);
+    setState("frozen");
+  }
+
+  function resumeLive() {
+    setSnapshot(null);
+    setZoom(1);
+    setState("live");
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) stopStream();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Assistant caméra</DialogTitle>
+          <DialogDescription>
+            Ceci affiche la caméra pour vous aider à lire un code difficile — la reconnaissance
+            automatique n&apos;est pas disponible. Lisez le code à l&apos;écran et saisissez-le
+            ci-dessous.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="relative flex aspect-video items-center justify-center overflow-auto rounded-lg bg-muted">
+            {state === "requesting" ? (
+              <span className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" />
+                Démarrage de la caméra…
+              </span>
+            ) : state === "denied" ? (
+              <span className="flex max-w-[85%] flex-col items-center gap-1.5 text-center text-xs text-muted-foreground">
+                <VideoOff className="size-5" />
+                Accès à la caméra refusé. Autorisez-le dans les réglages de votre navigateur pour
+                utiliser l&apos;assistant.
+              </span>
+            ) : state === "unavailable" ? (
+              <span className="flex max-w-[85%] flex-col items-center gap-1.5 text-center text-xs text-muted-foreground">
+                <VideoOff className="size-5" />
+                Caméra non disponible sur cet appareil ou ce navigateur.
+              </span>
+            ) : state === "error" ? (
+              <span className="flex max-w-[85%] flex-col items-center gap-1.5 text-center text-xs text-muted-foreground">
+                <VideoOff className="size-5" />
+                Impossible d&apos;accéder à la caméra.
+              </span>
+            ) : null}
+
+            {/* Toujours monté (masqué hors état live) pour que `videoRef` reste
+                attaché pendant `getUserMedia`, sans dépendre de l'ordre de montage. */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={cn("size-full object-contain", state !== "live" && "hidden")}
+            />
+
+            {state === "frozen" && snapshot ? (
+              // eslint-disable-next-line @next/next/no-img-element -- image figée en data: URL générée côté client (canvas), jamais une URL distante : next/image n'apporte rien ici, voir le même choix dans field-value.tsx pour les vignettes de document.
+              <img
+                src={snapshot}
+                alt="Image figée du code à lire"
+                className="max-w-none transition-transform"
+                style={{ transform: `scale(${zoom})` }}
+              />
+            ) : null}
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {state === "live" ? (
+              <Button type="button" variant="outline" size="sm" onClick={captureFrame}>
+                <Camera className="size-3.5" />
+                Figer l&apos;image pour zoomer
+              </Button>
+            ) : null}
+            {state === "frozen" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Zoomer"
+                  onClick={() => setZoom((z) => Math.min(z + 0.5, 3))}
+                  disabled={zoom >= 3}
+                >
+                  <ZoomIn className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Dézoomer"
+                  onClick={() => setZoom((z) => Math.max(z - 0.5, 1))}
+                  disabled={zoom <= 1}
+                >
+                  <ZoomOut className="size-3.5" />
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={resumeLive}>
+                  <RefreshCw className="size-3.5" />
+                  Reprendre le direct
+                </Button>
+              </>
+            ) : null}
+          </div>
+
+          <FormField id={`${id}-scanner-value`} label="Code lu">
+            <Input
+              id={`${id}-scanner-value`}
+              autoFocus={state === "denied" || state === "unavailable" || state === "error"}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Saisissez le code affiché…"
+            />
+          </FormField>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            Terminé
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

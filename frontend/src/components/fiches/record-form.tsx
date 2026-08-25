@@ -36,6 +36,7 @@ import {
 import { createRecord, updateRecord } from "@/lib/api/records";
 import { ApiError } from "@/lib/api/errors";
 import type { ModelDefinitionOut, RecordOut } from "@/lib/api/types";
+import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes-guard";
 
 const FULL_WIDTH_TYPES = new Set(["text_long", "photo", "due_date"]);
 
@@ -85,6 +86,8 @@ export function RecordForm({ model, organizationId, accessToken, mode, record, o
     },
   });
 
+  const { dialog: unsavedChangesDialog } = useUnsavedChangesGuard(form.formState.isDirty);
+
   async function onValid(values: FormValues) {
     const payload = {
       data: values.data,
@@ -97,6 +100,11 @@ export function RecordForm({ model, organizationId, accessToken, mode, record, o
           ? await createRecord(accessToken, organizationId, model.id, payload)
           : await updateRecord(accessToken, organizationId, record!.id, payload);
       toast.success(mode === "create" ? "Fiche créée." : "Fiche mise à jour.");
+      // Enregistrement réussi : le formulaire n'a plus rien de "non enregistré"
+      // à protéger — sans ce reset, `formState.isDirty` resterait vrai et le
+      // garde-fou (`useUnsavedChangesGuard`) bloquerait à tort la navigation
+      // que `onSuccess` s'apprête à déclencher.
+      form.reset(values);
       onSuccess(saved);
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
@@ -114,6 +122,7 @@ export function RecordForm({ model, organizationId, accessToken, mode, record, o
 
   return (
     <form onSubmit={form.handleSubmit(onValid)} noValidate className="space-y-6">
+      {unsavedChangesDialog}
       <div className="grid gap-5 sm:grid-cols-2">
         {model.status_options && model.status_options.length > 0 ? (
           <FormField id="record-status" label="Statut">
