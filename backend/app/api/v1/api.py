@@ -17,6 +17,7 @@ from app.api.v1.routers import (
     search,
     stock,
     subscriptions,
+    sync,
     templates,
 )
 
@@ -39,3 +40,4 @@ api_router.include_router(editor.router)
 api_router.include_router(files.router)
 api_router.include_router(dashboards.router)
 api_router.include_router(dashboards.saved_router)
+api_router.include_router(sync.router)

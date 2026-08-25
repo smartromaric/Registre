@@ -19,6 +19,7 @@ from app.schemas.record import (
     RecordListOut,
     RecordOut,
     RecordUpdate,
+    RecordUpdateOut,
 )
 from app.schemas.search import ImportCommitResult, ImportMappingSuggestion
 from app.services.export_service import export_records_csv
@@ -128,14 +129,14 @@ async def get_record(
     return RecordOut.model_validate(record)
 
 
-@router.patch("/organizations/{organization_id}/records/{record_id}", response_model=RecordOut)
+@router.patch("/organizations/{organization_id}/records/{record_id}", response_model=RecordUpdateOut)
 async def update_record(
     record_id: uuid.UUID,
     payload: RecordUpdate,
     user: User = Depends(get_current_user),
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
-) -> RecordOut:
+) -> RecordUpdateOut:
     record_service = RecordService(db)
     record = await record_service.get(membership.organization_id, record_id)
     if record is None:
@@ -156,12 +157,17 @@ async def update_record(
             status=payload.status,
             site=payload.site,
             assigned_person_record_id=payload.assigned_person_record_id,
+            client_operation_id=payload.client_operation_id,
+            field_written_at=payload.field_written_at,
         )
     except PermissionDeniedError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except FieldValidationError as exc:
         raise _validation_error_response(exc) from exc
-    return RecordOut.model_validate(record)
+    return RecordUpdateOut(
+        **RecordOut.model_validate(record).model_dump(),
+        conflicted_field_keys=getattr(record, "conflicted_field_keys", []),
+    )
 
 
 @router.post("/organizations/{organization_id}/records/{record_id}/archive", response_model=RecordOut)

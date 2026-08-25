@@ -276,17 +276,18 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ✅ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ✅ |
-| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ (différé, décision client — voir note) |
+| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | 🔶 (fondations serveur livrées — voir §10.11 ; PWA/service worker frontend à venir) |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
 
-**Lot 5 différé (2026-08-25)** : avec les lots 0-4 livrés côté backend et fiches/stock/
-tableaux de bord/abonnement-éditeur livrés côté frontend, le client a choisi de ne pas
-enchaîner sur le hors-ligne pour l'instant plutôt que de le construire à l'aveugle —
-cohérent avec le §11.2 du cahier des charges, qui marque lui-même ce périmètre comme
-« à valider » (Q9), pas encore confirmé. Les trois fondations non négociables du §11.4
-restent posées (identifiants générés côté client, mouvements de stock additifs et
-immuables, journal d'opérations via le journal d'audit — voir §10.6) : le jour où ce
-lot reprend, rien à reconstruire à la base.
+**Lot 5 repris (2026-08-25)** : le périmètre §11.2 (« à valider », Q9) est adopté tel
+quel comme périmètre v1, à la demande du client. Le socle serveur nécessaire à la
+synchronisation — fusion champ par champ avec journal de conflit, téléversement repris
+par morceaux — est livré et testé (§10.11) ; il s'appuie sur les fondations déjà posées
+au lot 0 (identifiants générés côté client, mouvements de stock additifs et immuables,
+journal d'opérations via le journal d'audit — §10.6). Reste à construire : le service
+worker, la file d'opérations locale (IndexedDB) et l'indicateur de connexion côté
+frontend — non commencés dans ce même passage, périmètre trop large pour être livré
+en une fois avec le reste de cette liste.
 
 Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, puis un
 écran par lot backend livré) :
@@ -832,6 +833,93 @@ désactiver. Corrigé côté backend (deux routes `GET /editor/offers` et
 `GET /editor/currencies` ajoutées, testées) et côté frontend (l'écran de catalogue
 et la file de règlements pointent maintenant vers ces routes plutôt que vers le
 catalogue public).
+
+### 10.11 Détail du lot 5 livré (backend) : fusion champ par champ, journal de conflits, téléversement repris
+
+Socle serveur de la synchronisation hors-ligne (§11.3). Le frontend (service worker,
+file d'opérations IndexedDB, indicateur de connexion) n'est pas construit dans ce
+même passage — voir la note de statut ci-dessus.
+
+**Fusion champ par champ.** `Record.field_updated_at` (JSONB, `{clé: horodatage}`)
+tient à jour, pour chaque champ de `data`, l'instant où il a été écrit pour la
+dernière fois. `RecordUpdate` accepte désormais `field_written_at` : pour chaque
+clé de `data`, l'instant où le **client** a réellement saisi cette valeur (capturé
+à la saisie, pas à l'envoi). `RecordService.update` compare, champ par champ,
+l'horodatage entrant à celui déjà enregistré :
+
+- Plus récent (ou champ jamais écrit) : la valeur s'applique, l'horodatage est mis
+  à jour — comportement normal, aucun conflit.
+- Plus ancien qu'une écriture déjà en place sur le même champ (l'agent hors-ligne se
+  reconnecte en retard, un autre utilisateur a écrit ce champ entre-temps) : la
+  valeur entrante est **rejetée** — le champ garde sa valeur actuelle — et une ligne
+  `RecordFieldConflict` est créée avec les deux valeurs et les deux horodatages.
+
+`field_written_at` absent (client web en ligne classique, cas normal aujourd'hui) :
+chaque champ est horodaté à `now()`, ce qui revient exactement au comportement
+d'avant ce lot (le dernier arrivé au serveur gagne). Rien ne change pour l'usage
+en ligne actuel.
+
+La réponse de `PATCH .../records/{id}` (`RecordUpdateOut`) porte en plus
+`conflicted_field_keys` : les clés rejetées par **cet appel précis**, pour que le
+client sache immédiatement qu'une de ses valeurs n'a pas été retenue sans avoir à
+consulter le journal séparément.
+
+**Journal de conflits.** `GET /organizations/{id}/sync/conflicts` (réservé à
+l'administrateur, `require_role(OrgRole.ADMIN)` — même garde que le journal
+d'audit) liste les conflits, les deux valeurs et les deux horodatages ;
+`POST .../sync/conflicts/{id}/ack` les marque comme vus. Rien ne les résout
+automatiquement — le cahier des charges demande un journal consultable, pas une
+règle de résolution supplémentaire au-delà du dernier-écrit-l'emporte déjà appliqué.
+
+**Idempotence de la mise à jour.** `RecordUpdate.client_operation_id`, vérifié via
+une nouvelle méthode `AuditService.find_by_client_operation_id` (le journal d'audit,
+déjà désigné comme le « journal d'opérations » du §11.4 — voir §10.6, reçoit une
+colonne `client_operation_id`) : une resoumission après coupure réseau (écriture
+appliquée côté serveur, réponse jamais reçue côté client) est un jeu sans effet,
+comme pour la création de fiche et les mouvements de stock.
+
+**Téléversement repris par morceaux** (§11.3 : « Les photos partent en
+arrière-plan, compressées, et reprennent après coupure sans repartir de zéro. »).
+Nouvelle table `upload_sessions`, id généré côté client (même principe que les
+fiches, §11.4) : `POST .../documents/uploads` ouvre ou retrouve une session,
+`PUT .../uploads/{id}/chunks/{n}` envoie un morceau (corps brut, taille bornée à
+5 Mo), `GET .../uploads/{id}` renvoie les indices déjà reçus — c'est ce que le
+client relit après une coupure pour savoir où reprendre plutôt que de tout
+renvoyer — et `POST .../uploads/{id}/complete` assemble les morceaux et les passe
+au service de documents existant (`DocumentService.upload`, inchangé). Les morceaux
+sont accumulés sur disque local (`app/storage/chunked.py`), indépendamment du
+backend de stockage final (local ou S3) : cette zone tampon existe même quand
+`storage_backend=s3`, elle ne sert qu'à recevoir l'envoi avant assemblage.
+`complete` est lui-même rejouable sans effet (resoumission après coupure entre
+l'écriture et la réponse : renvoie le document déjà produit).
+
+**Non traité dans ce lot, par choix explicite** : la synchronisation en arrière-plan
+pendant que l'onglet/l'application est fermé (Background Sync API) n'est pas
+construite — `frontend/src/lib/session.ts` garde le jeton d'accès uniquement en
+mémoire (jamais dans `localStorage`, pour limiter l'exposition XSS), ce qui rend
+impossible l'authentification d'une relecture déclenchée par un service worker
+après fermeture de l'onglet sans affaiblir cette protection. La relecture de la
+file d'opérations aura donc lieu pendant que l'application est ouverte et en ligne
+(au retour du réseau, ou à l'ouverture), pas en tâche de fond au sens strict du
+système d'exploitation — cohérent avec le comportement réel des navigateurs mobiles
+visés (Safari iOS ne supporte de toute façon pas la Background Sync API).
+
+Vérifié par `backend/tests/test_field_level_conflicts.py` (fusion, conflits réels,
+non-conflits, idempotence, journal + accusé de lecture) et
+`backend/tests/test_resumable_uploads.py` (reprise après coupure simulée, contenu
+assemblé identique à l'original, complétion idempotente, réouverture d'une session
+existante, refus d'un morceau trop volumineux).
+
+**Bug trouvé en construisant ce lot** : `SavedDashboard` (§10.9) n'était jamais
+importé dans `app/models/__init__.py` — Alembic ne « voyait » donc pas cette table
+pour l'autogénération de migration. La première tentative de génération de la
+migration de ce lot proposait silencieusement de **supprimer** `saved_dashboards`
+(la table existe bien en base, créée par la migration du lot 3, mais était absente
+des métadonnées SQLAlchemy que `--autogenerate` compare à la base réelle). Corrigé
+en important le modèle avant de régénérer — la migration de ce lot ne touche plus
+du tout `saved_dashboards`. Sans cette vérification, la prochaine migration
+autogénérée du projet aurait réellement supprimé les tableaux de bord enregistrés
+de tous les utilisateurs.
 
 ## 11. Manuel utilisateur
 

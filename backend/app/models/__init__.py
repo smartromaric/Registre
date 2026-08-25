@@ -1,6 +1,7 @@
 from app.models.alert import Alert, AlertSourceType, AlertStatus
 from app.models.audit_log import AuditLog
 from app.models.base import Base
+from app.models.dashboard import DashboardPeriod, SavedDashboard
 from app.models.document import Document
 from app.models.membership import Membership, OrgRole
 from app.models.model_definition import FieldDefinition, ModelDefinition, RecordNature
@@ -29,6 +30,7 @@ from app.models.subscription import (
     Subscription,
     SubscriptionStatus,
 )
+from app.models.sync import RecordFieldConflict, UploadSession
 from app.models.user import User
 
 __all__ = [
@@ -67,4 +69,8 @@ __all__ = [
     "StockLevel",
     "StockLot",
     "ConsignmentLevel",
+    "RecordFieldConflict",
+    "UploadSession",
+    "SavedDashboard",
+    "DashboardPeriod",
 ]

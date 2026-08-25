@@ -7,6 +7,12 @@ from app.models.document import Document
 from app.models.record import Record
 from app.storage import get_storage_backend
 
+# Cahier des charges §14.3 : les photos sont compressées côté appareil avant
+# l'envoi — cette limite est un garde-fou serveur, pas la stratégie de
+# compression. Partagée par le téléversement direct (documents.py) et par le
+# téléversement repris par morceaux (sync_service.py, §11.3).
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+
 
 class DocumentService:
     """Cahier des charges §5.2 : les types Document et Photo. Le fichier part vers

@@ -11,11 +11,16 @@ from app.dynamic_fields.validation import FieldValidationError, extract_due_date
 from app.models.membership import Membership
 from app.models.model_definition import ModelDefinition
 from app.models.record import Record, RecordDeadline, RecordEvent
+from app.models.sync import RecordFieldConflict
 from app.models.user import User
 from app.repositories.record import RecordRepository
 from app.schemas.record import RecordEventCreate
 from app.services.audit_service import AuditService
 from app.services.organization_service import PermissionDeniedError
+
+
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 class RecordService:
@@ -89,10 +94,15 @@ class RecordService:
         normalized = validate_and_normalize(model.field_definitions, data, partial=False)
         await self._check_uniqueness(organization_id, model, normalized)
 
+        created_at = datetime.now(UTC)
         record = Record(
             organization_id=organization_id,
             model_definition_id=model.id,
             data=normalized,
+            # Base de comparaison pour la fusion champ par champ des futures mises
+            # à jour (RecordService.update) — un champ jamais réécrit depuis la
+            # création compare contre cet instant, pas contre `None`.
+            field_updated_at={key: created_at.isoformat() for key in normalized},
             status=status,
             site=site,
             assigned_person_record_id=assigned_person_record_id,
@@ -128,17 +138,66 @@ class RecordService:
         status: str | None,
         site: str | None,
         assigned_person_record_id: uuid.UUID | None,
+        client_operation_id: uuid.UUID | None = None,
+        field_written_at: dict[str, datetime] | None = None,
     ) -> Record:
+        """§11.3 : fusion champ par champ. `field_written_at` porte, pour chaque
+        clé de `data`, l'instant où le CLIENT a réellement écrit cette valeur
+        (capturé côté appareil au moment de la saisie, pas de l'envoi) — c'est ce
+        qui distingue une vraie fusion d'un simple "dernier arrivé au serveur
+        gagne", nécessaire pour qu'un agent hors-ligne reconnecté en retard ne
+        puisse jamais écraser une écriture en ligne plus récente sur le même
+        champ. Absent (cas normal, client en ligne sans file d'attente) : chaque
+        champ est horodaté à `now()`, ce qui revient au comportement précédent
+        (la dernière écriture appliquée gagne). `client_operation_id` rend cette
+        méthode rejouable sans effet, comme RecordService.create.
+        """
         if not role_can(actor_membership.role, Action.CREATE_EDIT_RECORD):
             raise PermissionDeniedError("Vous n'avez pas le droit de modifier cette fiche.")
 
+        if client_operation_id is not None:
+            replay = await self.audit.find_by_client_operation_id(
+                organization_id, "record.update", client_operation_id
+            )
+            if replay is not None:
+                record.conflicted_field_keys = []
+                return record
+
         old_value = dict(record.data)
         merged = dict(record.data)
+        field_timestamps = dict(record.field_updated_at)
+        conflicts: list[RecordFieldConflict] = []
+
         if data is not None:
             normalized = validate_and_normalize(model.field_definitions, data, partial=True)
             await self._check_uniqueness(organization_id, model, normalized, exclude_record_id=record.id)
-            merged.update(normalized)
+
+            now = datetime.now(UTC)
+            for key, new_value in normalized.items():
+                new_ts = _aware((field_written_at or {}).get(key) or now)
+                old_ts_raw = field_timestamps.get(key)
+                old_ts = datetime.fromisoformat(old_ts_raw) if old_ts_raw else None
+
+                if old_ts is not None and new_ts < old_ts and merged.get(key) != new_value:
+                    conflicts.append(
+                        RecordFieldConflict(
+                            organization_id=organization_id,
+                            record_id=record.id,
+                            field_key=key,
+                            kept_value={"value": merged.get(key)},
+                            kept_at=old_ts,
+                            rejected_value={"value": new_value},
+                            rejected_at=new_ts,
+                            rejected_by_user_id=actor.id,
+                        )
+                    )
+                    continue
+
+                merged[key] = new_value
+                field_timestamps[key] = new_ts.isoformat()
+
             record.data = merged
+            record.field_updated_at = field_timestamps
 
         if status is not None:
             record.status = status
@@ -147,6 +206,8 @@ class RecordService:
         if assigned_person_record_id is not None:
             record.assigned_person_record_id = assigned_person_record_id
         record.updated_by_user_id = actor.id
+        for conflict in conflicts:
+            self.db.add(conflict)
         await self.db.flush()
 
         if data is not None:
@@ -160,7 +221,9 @@ class RecordService:
             entity_id=record.id,
             old_value=old_value,
             new_value=merged,
+            client_operation_id=client_operation_id,
         )
+        record.conflicted_field_keys = [c.field_key for c in conflicts]
         return record
 
     async def archive(

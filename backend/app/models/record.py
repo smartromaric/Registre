@@ -20,6 +20,12 @@ class Record(UUIDPrimaryKeyMixin, OrgScopedMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("model_definitions.id"), nullable=False, index=True
     )
     data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # §11.3 : fusion "champ par champ, le dernier écrit l'emporte sur le champ
+    # concerné" — nécessite de savoir QUAND chaque champ a réellement été écrit
+    # côté client, pas seulement l'ordre d'arrivée au serveur (un agent hors-ligne
+    # qui se reconnecte en retard ne doit pas écraser une écriture en ligne plus
+    # récente). {clé du champ: horodatage ISO 8601}. Voir RecordService.update.
+    field_updated_at: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Socle commun à toute fiche (§6.1) : statut configurable, affectation facultative.
     status: Mapped[str | None] = mapped_column(String(60))
