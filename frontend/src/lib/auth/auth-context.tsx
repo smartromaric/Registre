@@ -82,13 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const refreshed = await authApi.refreshSession();
-      if (cancelled) return;
-      if (!refreshed) {
-        setStatus("unauthenticated");
-        return;
-      }
+      // Filet de sécurité : `refreshSession` ne devrait plus jamais lever
+      // (voir son propre commentaire), mais si un cas imprévu lui échappait,
+      // ce `try` évite que `status` ne reste bloqué sur "loading" pour de bon —
+      // c'est exactement le bug réel corrigé le 2026-08-25 (rechargement de
+      // page qui ne débloquait jamais l'écran de patience).
       try {
+        const refreshed = await authApi.refreshSession();
+        if (cancelled) return;
+        if (!refreshed) {
+          setStatus("unauthenticated");
+          return;
+        }
         const me = await authApi.fetchCurrentUser(refreshed.access_token);
         if (cancelled) return;
         setAccessToken(refreshed.access_token);

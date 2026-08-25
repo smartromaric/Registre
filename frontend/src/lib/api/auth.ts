@@ -54,11 +54,25 @@ export function loginWithGoogle(payload: GoogleAuthRequest): Promise<ClientAuthR
 }
 
 /** Retourne `null` (jamais une exception) quand il n'y a simplement pas de session
- * à reconstruire — c'est l'état normal d'un visiteur non connecté, pas une erreur. */
+ * à reconstruire — c'est l'état normal d'un visiteur non connecté, pas une erreur.
+ * Un `fetch` qui échoue (réseau coupé, onglet qui se réveille, etc.) est traité
+ * pareil : mieux vaut retomber sur "non connecté" — l'utilisateur peut toujours
+ * se reconnecter — que de laisser l'appelant (le bootstrap de session au premier
+ * chargement) planter sur une exception non rattrapée et rester bloqué sur l'écran
+ * de patience indéfiniment (bug réel corrigé le 2026-08-25). */
 export async function refreshSession(): Promise<{ access_token: string } | null> {
-  const response = await fetch("/api/auth/refresh", { method: "POST" });
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/refresh", { method: "POST" });
+  } catch {
+    return null;
+  }
   if (!response.ok) return null;
-  return (await response.json()) as { access_token: string };
+  try {
+    return (await response.json()) as { access_token: string };
+  } catch {
+    return null;
+  }
 }
 
 export async function logout(): Promise<void> {
