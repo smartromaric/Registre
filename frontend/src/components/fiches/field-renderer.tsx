@@ -82,7 +82,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_UPLOAD_BYTES, uploadDocument } from "@/lib/api/documents";
+import { MAX_UPLOAD_BYTES } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/errors";
 import { getModelDefinition } from "@/lib/api/model-definitions";
 import { getRecord } from "@/lib/api/records";
@@ -96,6 +96,7 @@ import type {
   RecordLinkFieldValue,
 } from "@/lib/api/types";
 import { formatFileSize, getCachedDocument, rememberDocument } from "@/lib/documents-cache";
+import { uploadDocumentResumable } from "@/lib/offline/uploads";
 import { cn } from "@/lib/utils";
 
 export interface UploadContext {
@@ -1058,7 +1059,7 @@ function DocumentAttachment({
       }
       setUploading(true);
       try {
-        const doc = await uploadDocument(
+        const doc = await uploadDocumentResumable(
           uploadContext.accessToken,
           uploadContext.organizationId,
           uploadContext.recordId,
@@ -1170,7 +1171,7 @@ function PhotosAttachment({
       const uploaded: string[] = [];
       try {
         for (const file of files) {
-          const doc = await uploadDocument(
+          const doc = await uploadDocumentResumable(
             uploadContext.accessToken,
             uploadContext.organizationId,
             uploadContext.recordId,

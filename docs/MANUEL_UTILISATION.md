@@ -16,6 +16,7 @@
 7. [Rechercher, filtrer, exporter et importer](#7-rechercher-filtrer-exporter-et-importer)
 8. [Le tableau de bord](#8-le-tableau-de-bord)
 9. [Votre abonnement](#9-votre-abonnement)
+10. [Travailler hors connexion](#10-travailler-hors-connexion)
 
 ---
 
@@ -222,3 +223,38 @@ seule** pendant 30 jours : vous consultez, filtrez et exportez toujours vos
 données, mais ne pouvez plus rien saisir. Un règlement rouvre l'écriture
 immédiatement, dans l'état exact où vous l'aviez laissé — aucun jour payé
 n'est jamais perdu, même si vous réglez en avance.
+
+## 10. Travailler hors connexion
+
+Registre s'installe comme une application (icône sur l'écran d'accueil,
+plein écran, sans barre d'adresse) depuis le menu « Installer l'application »
+ou « Ajouter à l'écran d'accueil » de votre navigateur. Une fois installée —
+ou même simplement ouverte une première fois dans le navigateur —
+l'application reste consultable sans réseau pour tout ce que vous avez déjà
+visité : une fiche, une liste, un tableau de bord jamais ouvert avant la
+coupure ne peut pas apparaître par magie, mais tout ce que vous avez déjà vu
+reste là.
+
+**L'état de connexion est toujours visible**, en haut à droite : un point
+discret « En ligne » quand tout est à jour, « Synchronisation… » pendant
+l'envoi des dernières saisies, ou « Hors-ligne — *N* opération(s) en attente »
+en orange dès que le réseau manque.
+
+**Ce qui fonctionne sans réseau** : créer ou modifier une fiche, prendre une
+photo ou joindre un document, enregistrer un mouvement de stock (entrée,
+sortie, ajustement, transfert). Chaque action reste enregistrée sur
+l'appareil et repart automatiquement dès que le réseau revient — pas besoin
+de resaisir, ni de cliquer sur un bouton « synchroniser ».
+
+**Conflits** : si une même information a été modifiée à la fois hors ligne
+sur un appareil et en ligne par un collègue pendant la coupure, c'est la
+saisie la plus récente (à l'instant où elle a été tapée, pas à l'instant où
+elle a fini par être envoyée) qui est retenue — l'autre est simplement
+écartée, jamais mélangée. Un administrateur retrouve chaque cas dans
+« Organisation → Conflits de synchronisation », avec les deux valeurs et les
+deux horodatages, et peut le marquer comme vu.
+
+**Limite assumée** : la resynchronisation n'a lieu que pendant que
+l'application est ouverte (au retour du réseau, ou toutes les 30 secondes) —
+pas en tâche de fond une fois l'onglet fermé, pour ne jamais avoir à
+conserver vos identifiants de connexion au-delà de la fenêtre ouverte.

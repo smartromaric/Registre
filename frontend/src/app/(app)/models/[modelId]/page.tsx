@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FilePlus2, Layers, Settings } from "lucide-react";
+import { CloudOff, FilePlus2, Layers, Settings } from "lucide-react";
 
 import { buildRecordColumns } from "@/components/fiches/record-columns";
 import { ModelIcon } from "@/components/fiches/model-icon";
@@ -16,8 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { getModelDefinition } from "@/lib/api/model-definitions";
 import { listRecords } from "@/lib/api/records";
-import type { RecordOut } from "@/lib/api/types";
+import type { RecordListOut, RecordOut } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/auth-context";
+import { listCachedRecordsByModel } from "@/lib/offline/db";
 
 const PAGE_SIZE = 50;
 
@@ -32,6 +33,7 @@ export default function ModelRecordsPage() {
   const router = useRouter();
   const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
   const [pageIndex, setPageIndex] = useState(0);
+  const [servedFromCache, setServedFromCache] = useState(false);
 
   const modelQuery = useQuery({
     queryKey: ["model-definition", currentOrganizationId, modelId],
@@ -41,11 +43,27 @@ export default function ModelRecordsPage() {
 
   const recordsQuery = useQuery({
     queryKey: ["records", currentOrganizationId, modelId, pageIndex],
-    queryFn: () =>
-      listRecords(accessToken as string, currentOrganizationId as string, modelId, {
-        limit: PAGE_SIZE,
-        offset: pageIndex * PAGE_SIZE,
-      }),
+    // Hors-ligne : retombe sur le cache de fiches déjà visitées pour ce
+    // modèle — pas de vraie pagination possible sans serveur, on rend tout ce
+    // qui est connu localement en une seule page plutôt que de simuler un total.
+    queryFn: async (): Promise<RecordListOut> => {
+      try {
+        const fresh = await listRecords(accessToken as string, currentOrganizationId as string, modelId, {
+          limit: PAGE_SIZE,
+          offset: pageIndex * PAGE_SIZE,
+        });
+        setServedFromCache(false);
+        return fresh;
+      } catch (err) {
+        if (err instanceof ApiError && err.kind === "network") {
+          const cached = await listCachedRecordsByModel(currentOrganizationId as string, modelId);
+          setServedFromCache(true);
+          const items = cached.map((c) => c.data);
+          return { items, total: items.length, limit: PAGE_SIZE, offset: 0 };
+        }
+        throw err;
+      }
+    },
     enabled: Boolean(accessToken && currentOrganizationId && modelId),
     placeholderData: keepPreviousData,
   });
@@ -92,6 +110,12 @@ export default function ModelRecordsPage() {
 
   return (
     <div className="space-y-6">
+      {servedFromCache ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/15 px-4 py-2.5 text-sm text-gold-foreground">
+          <CloudOff className="size-4 shrink-0" />
+          Hors-ligne — dernières données connues.
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ModelIcon icon={model.icon} color={model.color} size="lg" />

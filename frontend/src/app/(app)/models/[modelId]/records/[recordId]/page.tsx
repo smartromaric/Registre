@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, ArrowLeft, Layers, Loader2, Pencil } from "lucide-react";
+import { Archive, ArrowLeft, CloudOff, Layers, Loader2, Pencil } from "lucide-react";
 
 import { FieldValueView } from "@/components/fiches/field-value";
 import { ModelIcon } from "@/components/fiches/model-icon";
@@ -32,12 +32,14 @@ import { getModelDefinition } from "@/lib/api/model-definitions";
 import { archiveRecord, getRecord } from "@/lib/api/records";
 import { formatDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth/auth-context";
+import { getCachedRecord, putCachedRecord } from "@/lib/offline/db";
 
 export default function RecordDetailPage() {
   const { modelId, recordId } = useParams<{ modelId: string; recordId: string }>();
   const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [servedFromCache, setServedFromCache] = useState(false);
 
   const modelQuery = useQuery({
     queryKey: ["model-definition", currentOrganizationId, modelId],
@@ -48,7 +50,33 @@ export default function RecordDetailPage() {
   const recordQueryKey = ["record", currentOrganizationId, recordId];
   const recordQuery = useQuery({
     queryKey: recordQueryKey,
-    queryFn: () => getRecord(accessToken as string, currentOrganizationId as string, recordId),
+    // Hors-ligne (réseau injoignable, pas une 404/403) : retombe sur le
+    // dernier instantané connu plutôt qu'un écran d'erreur — voir
+    // `lib/offline/db.ts`. Une fiche jamais visitée en ligne reste, elle,
+    // honnêtement indisponible.
+    queryFn: async () => {
+      try {
+        const fresh = await getRecord(accessToken as string, currentOrganizationId as string, recordId);
+        setServedFromCache(false);
+        void putCachedRecord({
+          id: fresh.id,
+          organizationId: currentOrganizationId as string,
+          modelId: fresh.model_definition_id,
+          data: fresh,
+          cachedAt: new Date().toISOString(),
+        });
+        return fresh;
+      } catch (err) {
+        if (err instanceof ApiError && err.kind === "network") {
+          const cached = await getCachedRecord(recordId);
+          if (cached) {
+            setServedFromCache(true);
+            return cached.data;
+          }
+        }
+        throw err;
+      }
+    },
     enabled: Boolean(accessToken && currentOrganizationId && recordId),
   });
 
@@ -95,6 +123,12 @@ export default function RecordDetailPage() {
 
   return (
     <div className="space-y-8">
+      {servedFromCache ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/15 px-4 py-2.5 text-sm text-gold-foreground">
+          <CloudOff className="size-4 shrink-0" />
+          Hors-ligne — dernières données connues.
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <ModelIcon icon={model.icon} color={model.color} size="lg" />

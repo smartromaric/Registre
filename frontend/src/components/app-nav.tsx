@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Home, Layers, Library, Menu, Plus, Users, Warehouse } from "lucide-react";
+import { CreditCard, GitMerge, Home, Layers, Library, Menu, Plus, Users, Warehouse } from "lucide-react";
 
 import { ModelIcon } from "@/components/fiches/model-icon";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,14 @@ export function AppSidebar() {
             icon={<Users className="size-4 shrink-0" />}
             label="Membres"
             active={pathname === "/organisation/membres"}
+          />
+        ) : null}
+        {isAdmin ? (
+          <SidebarLink
+            href="/organisation/conflits"
+            icon={<GitMerge className="size-4 shrink-0" />}
+            label="Conflits de synchronisation"
+            active={pathname === "/organisation/conflits"}
           />
         ) : null}
         <SidebarLink href="/abonnement" icon={<CreditCard className="size-4 shrink-0" />} label="Abonnement" active={pathname === "/abonnement"} />
@@ -173,6 +181,14 @@ export function ModelsNavMenu() {
             <Link href="/organisation/membres">
               <Users className="size-4" />
               Membres
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {isAdmin ? (
+          <DropdownMenuItem asChild>
+            <Link href="/organisation/conflits">
+              <GitMerge className="size-4" />
+              Conflits de synchronisation
             </Link>
           </DropdownMenuItem>
         ) : null}

@@ -8,6 +8,7 @@ import { AppSidebar, ModelsNavMenu } from "@/components/app-nav";
 import { Logo } from "@/components/brand/logo";
 import { SplashScreen } from "@/components/brand/splash-screen";
 import { CommandPalette } from "@/components/command-palette";
+import { OfflineStatusIndicator } from "@/components/offline/offline-status-indicator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             >
               <Search className="size-4" />
             </Button>
+            <OfflineStatusIndicator />
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -12,10 +12,23 @@
  * champs concernés via `form.setError("data.<cle>", ...)` — c'est le seul endroit
  * qui traduit `ApiError.fieldErrors` en état de formulaire, `FieldRenderer` se
  * contente ensuite de lire `fieldState.error` normalement.
+ *
+ * Hors-ligne (cahier des charges §11.3/§11.4, PRODUCT.md §10.11) : l'id de
+ * fiche est TOUJOURS généré côté client (pas seulement hors-ligne — c'est la
+ * condition posée dès la création pour que ce mode n'ait jamais à réécrire ce
+ * socle), et une mise à jour envoie toujours `field_written_at` (un
+ * horodatage par champ modifié, capturé à cette soumission précise) pour la
+ * fusion champ par champ côté serveur. Si l'appel échoue avec
+ * `ApiError.kind === "network"` (le serveur n'a même pas été joint — jamais
+ * pour un 422/403, qui restent des erreurs normales), l'opération part dans la
+ * file IndexedDB (`lib/offline/db.ts`) et un instantané local remplace la
+ * réponse serveur, pour que la suite (navigation vers la fiche) fonctionne à
+ * l'identique.
  */
 
 import { useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, type Control, type FieldValues, type Path } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -36,6 +49,7 @@ import {
 import { createRecord, updateRecord } from "@/lib/api/records";
 import { ApiError } from "@/lib/api/errors";
 import type { ModelDefinitionOut, RecordOut } from "@/lib/api/types";
+import { enqueueOperation, putCachedRecord } from "@/lib/offline/db";
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes-guard";
 
 const FULL_WIDTH_TYPES = new Set(["text_long", "photo", "due_date"]);
@@ -51,6 +65,7 @@ export interface RecordFormProps {
 }
 
 export function RecordForm({ model, organizationId, accessToken, mode, record, onSuccess }: RecordFormProps) {
+  const queryClient = useQueryClient();
   const sortedFields = useMemo(
     () => [...model.field_definitions].sort((a, b) => a.position - b.position),
     [model.field_definitions],
@@ -89,21 +104,124 @@ export function RecordForm({ model, organizationId, accessToken, mode, record, o
   const { dialog: unsavedChangesDialog } = useUnsavedChangesGuard(form.formState.isDirty);
 
   async function onValid(values: FormValues) {
+    const nowIso = new Date().toISOString();
     const payload = {
       data: values.data,
       status: values.status ? values.status : null,
       site: values.site?.trim() ? values.site.trim() : null,
     };
     try {
-      const saved =
-        mode === "create"
-          ? await createRecord(accessToken, organizationId, model.id, payload)
-          : await updateRecord(accessToken, organizationId, record!.id, payload);
-      toast.success(mode === "create" ? "Fiche créée." : "Fiche mise à jour.");
-      // Enregistrement réussi : le formulaire n'a plus rien de "non enregistré"
-      // à protéger — sans ce reset, `formState.isDirty` resterait vrai et le
-      // garde-fou (`useUnsavedChangesGuard`) bloquerait à tort la navigation
-      // que `onSuccess` s'apprête à déclencher.
+      let saved: RecordOut;
+      let queuedOffline = false;
+
+      if (mode === "create") {
+        // Généré ici, pas côté serveur (§11.4) — c'est cet id qui identifie la
+        // fiche partout ensuite, qu'elle parte en ligne ou en file d'attente.
+        const recordId = crypto.randomUUID();
+        try {
+          saved = await createRecord(accessToken, organizationId, model.id, { ...payload, id: recordId });
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+          saved = {
+            id: recordId,
+            model_definition_id: model.id,
+            data: payload.data,
+            status: payload.status,
+            site: payload.site,
+            assigned_person_record_id: null,
+            is_archived: false,
+            archived_at: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          };
+          await enqueueOperation({
+            id: crypto.randomUUID(),
+            kind: "record.create",
+            organizationId,
+            createdAt: nowIso,
+            status: "pending",
+            attempts: 0,
+            payload: {
+              modelId: model.id,
+              recordId,
+              data: payload.data,
+              status: payload.status,
+              site: payload.site,
+              assigned_person_record_id: null,
+            },
+          });
+          await putCachedRecord({ id: recordId, organizationId, modelId: model.id, data: saved, cachedAt: nowIso });
+          queuedOffline = true;
+        }
+        queryClient.setQueryData(["record", organizationId, saved.id], saved);
+      } else {
+        // Seuls les champs réellement modifiés à CETTE soumission partent au
+        // serveur — pas l'objet `data` complet du formulaire. Sans ce tri, un
+        // champ jamais touché par cet utilisateur (juste rechargé depuis
+        // `record.data` dans `defaultValues`) repartait quand même horodaté à
+        // "maintenant", ce qui aurait pu écraser sans avertissement la
+        // modification plus récente d'un autre champ par un collègue — la
+        // fusion champ par champ (PRODUCT.md §10.11) ne protège que ce qui lui
+        // est réellement soumis comme "écrit à cet instant".
+        const dirtyKeys = Object.keys(form.formState.dirtyFields.data ?? {});
+        const changedData = Object.fromEntries(dirtyKeys.map((key) => [key, values.data[key]]));
+        const fieldWrittenAt = Object.fromEntries(dirtyKeys.map((key) => [key, nowIso]));
+        const clientOperationId = crypto.randomUUID();
+        try {
+          saved = await updateRecord(accessToken, organizationId, record!.id, {
+            ...payload,
+            data: changedData,
+            client_operation_id: clientOperationId,
+            field_written_at: fieldWrittenAt,
+          });
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+          saved = {
+            ...record!,
+            data: { ...record!.data, ...changedData },
+            status: payload.status,
+            site: payload.site,
+            updated_at: nowIso,
+          };
+          await enqueueOperation({
+            id: clientOperationId,
+            kind: "record.update",
+            organizationId,
+            createdAt: nowIso,
+            status: "pending",
+            attempts: 0,
+            payload: {
+              recordId: record!.id,
+              data: changedData,
+              status: payload.status,
+              site: payload.site,
+              assigned_person_record_id: record!.assigned_person_record_id,
+              fieldWrittenAt,
+            },
+          });
+          await putCachedRecord({
+            id: record!.id,
+            organizationId,
+            modelId: model.id,
+            data: saved,
+            cachedAt: nowIso,
+          });
+          queuedOffline = true;
+        }
+        queryClient.setQueryData(["record", organizationId, saved.id], saved);
+      }
+
+      toast.success(
+        queuedOffline
+          ? `${mode === "create" ? "Fiche créée" : "Fiche mise à jour"} hors connexion — sera synchronisée au retour du réseau.`
+          : mode === "create"
+            ? "Fiche créée."
+            : "Fiche mise à jour.",
+      );
+      // Enregistrement réussi (ou mis en file) : le formulaire n'a plus rien de
+      // "non enregistré" à protéger — sans ce reset, `formState.isDirty`
+      // resterait vrai et le garde-fou (`useUnsavedChangesGuard`) bloquerait à
+      // tort la navigation que `onSuccess` s'apprête à déclencher.
       form.reset(values);
       onSuccess(saved);
     } catch (err) {

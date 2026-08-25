@@ -17,17 +17,20 @@ export interface ApiRequestInit extends Omit<RequestInit, "headers"> {
  * Quand `init.body` est un `FormData` (téléversement de document), le
  * `Content-Type: application/json` par défaut est omis pour laisser le
  * navigateur poser lui-même le `multipart/form-data; boundary=...` correct.
+ * Même omission pour un `Blob` brut (morceau de téléversement repris, §11.3 —
+ * voir `lib/offline/uploads.ts`) : le corps part tel quel, sans enveloppe JSON.
  */
 export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   const { accessToken, headers, ...rest } = init;
   const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
+  const isBinaryBody = typeof Blob !== "undefined" && rest.body instanceof Blob;
 
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...rest,
       headers: {
-        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(isFormData || isBinaryBody ? {} : { "Content-Type": "application/json" }),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...headers,
       },

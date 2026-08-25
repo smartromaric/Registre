@@ -992,6 +992,37 @@ Vérifié par `npm run lint` et `npm run build` (TypeScript strict, toutes les r
 compilent, y compris `/organisation/conflits`) — pas de suite de tests frontend
 automatisée dans ce projet à ce jour, cohérent avec le reste de `frontend/`.
 
+**Correctifs appliqués après revue indépendante** : trois problèmes réels, tous dans
+`lib/offline/sync-engine.ts` (plus un dans `record-form.tsx`), corrigés le jour même :
+
+- **Opération bloquée "syncing" pour toujours.** Le statut passait à "syncing" en
+  IndexedDB avant même que la requête réseau ne parte ; si l'onglet se fermait ou
+  l'application était tuée par le système pendant cette fenêtre (scénario réaliste sur
+  le terrain, réseau instable), rien ne remettait jamais cette opération à "pending" —
+  elle restait exclue de toute relecture future ET invisible de l'indicateur de
+  connexion (qui ne compte que les "pending"), silencieusement perdue en pratique
+  bien que toujours présente en base. Corrigé par `resetStaleSyncingOperations` :
+  toute opération encore "syncing" en tout début de passe ne peut venir que d'une
+  passe précédente interrompue, donc remise "pending" sans risque (rejeu sans effet
+  garanti par les identifiants générés côté client, §11.4).
+- **Opérations "failed" rejouées et re-signalées indéfiniment.** Contredisait la
+  documentation même de ce paragraphe (« classe l'opération "failed" et continue » —
+  vrai pour cette passe, mais rien n'empêchait la passe suivante de la reprendre) :
+  un toast d'erreur toutes les ~30 secondes pour une erreur de validation qui ne
+  réussira jamais. Corrigé en excluant "failed" de la relecture — une opération
+  échouée reste signalée une fois puis inerte (pas d'écran de gestion des échecs
+  dans ce lot, toujours hors périmètre assumé, mais maintenant réellement silencieux
+  plutôt que bruyant en boucle).
+- **`field_written_at` posé sur tout le formulaire, pas seulement les champs
+  modifiés.** `values.data` (l'objet complet renvoyé par React Hook Form, y compris
+  les champs jamais touchés) partait en entier, chacun réhorodaté à l'instant de
+  soumission — un champ non modifié, resoumis avec un horodatage "maintenant",
+  pouvait silencieusement écraser sans conflit détecté la modification plus récente
+  de ce même champ par quelqu'un d'autre. Corrigé : seuls les champs que
+  `form.formState.dirtyFields.data` marque réellement modifiés à cette soumission
+  sont envoyés (et horodatés) — le serveur, déjà conçu pour un `data` partiel, ne
+  voit plus jamais un champ que l'utilisateur n'a pas touché.
+
 ### 10.13 Chasse au bug dédiée (2026-08-25) : neuf failles trouvées et corrigées
 
 Balayage ciblé du backend (RLS, droits, rejeu/idempotence, arithmétique de stock,

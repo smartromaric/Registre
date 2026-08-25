@@ -6,6 +6,7 @@ import type {
   RecordListOut,
   RecordOut,
   RecordUpdate,
+  RecordUpdateOut,
 } from "./types";
 
 /**
@@ -72,13 +73,15 @@ export function createRecord(
   );
 }
 
+/** Renvoie `RecordUpdateOut` (pas `RecordOut`) : porte `conflicted_field_keys`,
+ * les clés rejetées par la fusion champ par champ de cet appel précis (§11.3). */
 export function updateRecord(
   accessToken: string,
   organizationId: string,
   recordId: string,
   payload: RecordUpdate,
-): Promise<RecordOut> {
-  return apiRequest<RecordOut>(`/organizations/${organizationId}/records/${recordId}`, {
+): Promise<RecordUpdateOut> {
+  return apiRequest<RecordUpdateOut>(`/organizations/${organizationId}/records/${recordId}`, {
     accessToken,
     method: "PATCH",
     body: JSON.stringify(payload),

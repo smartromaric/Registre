@@ -35,6 +35,7 @@ export const metadata: Metadata = {
   },
   description:
     "Registre — le socle unique pour suivre vos actifs et vos stocks : véhicules, gaz, vêtements, personnel et plus, sans tableur ni classeur.",
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

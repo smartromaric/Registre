@@ -307,18 +307,26 @@ export interface TemplateSummary {
 }
 
 // --- backend/app/schemas/record.py ------------------------------------------------------
+/** `id` : identifiant généré côté client (cahier des charges §11.4, mode hors-ligne) —
+ * une resoumission avec le même id est un jeu sans effet. Toujours fourni par
+ * `record-form.tsx`, pas seulement en mode hors-ligne (voir son commentaire d'en-tête). */
 export interface RecordCreate {
+  id?: string;
   data?: Record<string, unknown>;
   status?: string | null;
   site?: string | null;
   assigned_person_record_id?: string | null;
 }
 
+/** `client_operation_id`/`field_written_at` : fondations hors-ligne (§11.3/§11.4) —
+ * voir PRODUCT.md §10.11. Absents : comportement inchangé (client en ligne classique). */
 export interface RecordUpdate {
   data?: Record<string, unknown> | null;
   status?: string | null;
   site?: string | null;
   assigned_person_record_id?: string | null;
+  client_operation_id?: string | null;
+  field_written_at?: Record<string, string> | null;
 }
 
 export interface RecordOut {
@@ -332,6 +340,12 @@ export interface RecordOut {
   archived_at: string | null; // ISO 8601 (datetime)
   created_at: string; // ISO 8601 (datetime)
   updated_at: string; // ISO 8601 (datetime)
+}
+
+/** Réponse de `PATCH .../records/{id}` — `RecordOut` plus les clés de `data`
+ * rejetées par la fusion champ par champ de cet appel précis (§11.3). */
+export interface RecordUpdateOut extends RecordOut {
+  conflicted_field_keys: string[];
 }
 
 export interface RecordListOut {
@@ -967,4 +981,56 @@ export interface SearchHitOut {
   model_definition_id: string;
   model_name: string;
   title: string;
+}
+
+// =========================================================================
+// Synchronisation hors-ligne (cahier des charges §11.3) — mode ADDITIF, ne pas
+// toucher aux types ci-dessus. Miroir exact de backend/app/schemas/sync.py.
+// =========================================================================
+
+/** `kept_value`/`rejected_value` : le backend stocke toujours `{"value": <la
+ * valeur réelle du champ>}`, jamais la valeur nue — voir `record_service.py`. */
+export interface RecordFieldConflictOut {
+  id: string;
+  record_id: string;
+  field_key: string;
+  kept_value: { value: unknown };
+  kept_at: string; // ISO 8601 (datetime)
+  rejected_value: { value: unknown };
+  rejected_at: string; // ISO 8601 (datetime)
+  rejected_by_user_id: string | null;
+  created_at: string; // ISO 8601 (datetime)
+  reviewed_at: string | null;
+  reviewed_by_user_id: string | null;
+}
+
+export interface RecordFieldConflictListOut {
+  items: RecordFieldConflictOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** `id` généré côté client — retrouver une session existante avec le même id
+ * est comment on reprend un envoi après coupure (§11.3), pas une seconde ouverte. */
+export interface UploadSessionCreate {
+  id: string;
+  field_key?: string | null;
+  filename: string;
+  content_type: string;
+  total_bytes: number;
+  chunk_size: number;
+}
+
+export interface UploadSessionOut {
+  id: string;
+  record_id: string;
+  field_key: string | null;
+  filename: string;
+  content_type: string;
+  total_bytes: number;
+  chunk_size: number;
+  chunks_received: number[];
+  status: "in_progress" | "completed";
+  document_id: string | null;
 }

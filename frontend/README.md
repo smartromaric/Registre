@@ -265,14 +265,25 @@ l'espace éditeur ne réutilise ni sa coquille ni son contexte d'organisation.
   normale ; espace éditeur séparé (`app/(editor)`, réservé à `is_platform_admin`) —
   catalogue d'offres/devises, organisations, file de règlements à valider/rejeter,
   ajustement manuel d'abonnement, déclenchement du balayage de cycle de vie.
+- Réinitialisation de mot de passe, authentification à deux facteurs (TOTP + codes
+  de secours), acceptation d'invitation par e-mail, écran de gestion des membres.
+- Champ « Lien vers une fiche » : sélecteur visuel avec recherche (plus de saisie
+  d'UUID brut). Champ « Code » : assistant caméra pour une saisie manuelle fiable
+  (pas de reconnaissance automatique). Garde-fou « modifications non enregistrées »
+  sur les formulaires de fiche et de modèle.
+- **Mode hors-ligne (PWA, lot 5)** : application installable (manifeste + service
+  worker), file d'opérations locale (IndexedDB) rejouée au retour du réseau,
+  indicateur de connexion permanent, fusion champ par champ des fiches modifiées
+  hors-ligne avec journal de conflits consultable par l'administrateur
+  (`organisation/conflits`), téléversement de documents/photos repris par morceaux
+  après coupure. Détail complet dans `PRODUCT.md` §10.12.
 
 **Pas fait (hors périmètre à ce stade, volontairement)**
-- Mode hors-ligne (PWA, lot 5).
-- Réinitialisation de mot de passe, 2FA, acceptation d'invitation par e-mail (pas encore
-  construites côté backend non plus).
-- Type de champ « Lien vers une fiche » : saisie par UUID brut, pas encore de sélecteur
-  visuel. Type « Code » : saisie manuelle seulement, pas encore de scan par caméra.
-- Aucun garde-fou de type « modifications non enregistrées » sur les formulaires.
+- Mode hors-ligne : pas de synchronisation en arrière-plan une fois l'onglet fermé
+  (Background Sync API — incompatible avec le choix de garder le jeton d'accès en
+  mémoire seule, voir PRODUCT.md §10.11/§10.12), pas d'écran de gestion des
+  opérations en échec au-delà d'un message affiché une fois, pas d'éviction du
+  cache par dépôt (seulement par ancienneté, 12 mois).
 - Génération automatique du client TS depuis l'OpenAPI du backend : les types sont recopiés
   à la main dans `src/lib/api/types.ts` pour l'instant.
 

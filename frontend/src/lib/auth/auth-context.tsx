@@ -16,6 +16,7 @@ import * as authApi from "@/lib/api/auth";
 import * as orgApi from "@/lib/api/organizations";
 import { ApiError } from "@/lib/api/errors";
 import type { OrganizationCreate, OrganizationWithRole, UserOut } from "@/lib/api/types";
+import { useOfflineSync } from "@/lib/offline/use-offline-sync";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -41,6 +42,11 @@ interface AuthContextValue {
   acceptInvitation: (payload: { token: string; password: string; full_name?: string }) => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: (payload: OrganizationCreate) => Promise<OrganizationWithRole>;
+  /** Rejoue le cookie httpOnly de refresh pour obtenir un nouveau jeton d'accès
+   * — utilisé par le moteur de synchro hors-ligne (`lib/offline/sync-engine.ts`)
+   * quand une opération en file échoue avec un 401 (jeton expiré pendant que
+   * l'app était fermée/hors-ligne). `null` = session vraiment terminée. */
+  refreshAccessToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -175,6 +181,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
+    const refreshed = await authApi.refreshSession();
+    if (!refreshed) {
+      setAccessToken(null);
+      setStatus("unauthenticated");
+      return null;
+    }
+    setAccessToken(refreshed.access_token);
+    return refreshed.access_token;
+  }, []);
+
   const logout = useCallback(async () => {
     await authApi.logout();
     setAccessToken(null);
@@ -202,6 +219,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [organizations, currentOrganizationId],
   );
 
+  // Une seule instance pour toute l'app — `AuthProvider` lui-même n'est monté
+  // qu'une fois (voir app/providers.tsx), pas besoin d'un composant dédié de plus.
+  useOfflineSync(accessToken, status, refreshAccessToken);
+
   const value: AuthContextValue = {
     status,
     user,
@@ -220,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     acceptInvitation,
     logout,
     completeOnboarding,
+    refreshAccessToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

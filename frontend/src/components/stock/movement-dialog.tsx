@@ -55,8 +55,22 @@ import {
   createTransferMovement,
   listStockLevels,
 } from "@/lib/api/stock";
-import type { ArticleVariantOut, DepotOut } from "@/lib/api/types";
+import type {
+  AdjustmentCreate,
+  ArticleVariantOut,
+  DepotOut,
+  MovementCreate,
+  MovementOut,
+  TransferCreate,
+} from "@/lib/api/types";
+import { enqueueOperation } from "@/lib/offline/db";
 import { variantLabel } from "@/lib/stock-format";
+
+/** `queued: true` : le réseau était injoignable, le mouvement est parti dans
+ * la file IndexedDB plutôt que d'échouer (§H, PRODUCT.md §10.11) — la
+ * `mutationFn` résout normalement (pas de throw) pour que `onSuccess` ferme
+ * la boîte de dialogue exactement comme un envoi en ligne réussi. */
+type MutationResult<T> = { queued: true } | { queued: false; data: T };
 
 export interface MovementDialogProps {
   recordId: string;
@@ -263,16 +277,25 @@ function EntryForm({
   const { control, register, handleSubmit, formState, setError } = form;
 
   const mutation = useMutation({
-    mutationFn: async (values: EntryValues) => {
+    mutationFn: async (values: EntryValues): Promise<MutationResult<MovementOut[]>> => {
       if (lotTrackingEnabled && (!values.lot_number?.trim() || !values.lot_expiry_date)) {
         throw new ApiError("Numéro de lot et date de péremption requis pour cet article.", 400);
       }
       let documentId: string | null = null;
       if (file) {
-        const uploaded = await uploadDocument(accessToken, organizationId, recordId, file);
-        documentId = uploaded.id;
+        try {
+          const uploaded = await uploadDocument(accessToken, organizationId, recordId, file);
+          documentId = uploaded.id;
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+          // Hors-ligne : pas de reprise pour cette pièce jointe précise (seuls
+          // les champs Document/Photo d'une fiche en bénéficient, voir
+          // lib/offline/uploads.ts) — le mouvement part quand même en file,
+          // simplement sans elle, plutôt que de tout bloquer.
+        }
       }
-      return createEntryMovement(accessToken, organizationId, {
+      const body: MovementCreate = {
+        client_operation_id: crypto.randomUUID(),
         variant_id: values.variant_id,
         depot_id: values.depot_id,
         quantity: values.quantity,
@@ -283,10 +306,28 @@ function EntryForm({
         lot_expiry_date: lotTrackingEnabled ? values.lot_expiry_date! : null,
         document_id: documentId,
         note: values.note?.trim() || null,
-      });
+      };
+      try {
+        const data = await createEntryMovement(accessToken, organizationId, body);
+        return { queued: false, data };
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+        await enqueueOperation({
+          id: body.client_operation_id as string,
+          kind: "stock.movement",
+          organizationId,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          payload: { kind: "entry", body },
+        });
+        return { queued: true };
+      }
     },
-    onSuccess: () => {
-      toast.success("Entrée enregistrée.");
+    onSuccess: (result) => {
+      toast.success(
+        result.queued ? "Mouvement enregistré hors connexion — sera synchronisé au retour du réseau." : "Entrée enregistrée.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["stock-levels", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-movements", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-lots", organizationId] });
@@ -430,8 +471,9 @@ function ExitForm({
   const { control, register, handleSubmit, formState } = form;
 
   const mutation = useMutation({
-    mutationFn: (values: ExitValues) =>
-      createExitMovement(accessToken, organizationId, {
+    mutationFn: async (values: ExitValues): Promise<MutationResult<MovementOut[]>> => {
+      const body: MovementCreate = {
+        client_operation_id: crypto.randomUUID(),
         variant_id: values.variant_id,
         depot_id: values.depot_id,
         quantity: values.quantity,
@@ -440,13 +482,32 @@ function ExitForm({
         cost_amount: values.cost_amount ?? null,
         lot_number: lotTrackingEnabled && values.lot_number?.trim() ? values.lot_number.trim() : null,
         note: values.note?.trim() || null,
-      }),
-    onSuccess: (movements) => {
-      toast.success(
-        movements.length > 1
-          ? `Sortie enregistrée sur ${movements.length} lots (FIFO).`
-          : "Sortie enregistrée.",
-      );
+      };
+      try {
+        const data = await createExitMovement(accessToken, organizationId, body);
+        return { queued: false, data };
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+        await enqueueOperation({
+          id: body.client_operation_id as string,
+          kind: "stock.movement",
+          organizationId,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          payload: { kind: "exit", body },
+        });
+        return { queued: true };
+      }
+    },
+    onSuccess: (result) => {
+      if (result.queued) {
+        toast.success("Mouvement enregistré hors connexion — sera synchronisé au retour du réseau.");
+      } else {
+        toast.success(
+          result.data.length > 1 ? `Sortie enregistrée sur ${result.data.length} lots (FIFO).` : "Sortie enregistrée.",
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ["stock-levels", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-movements", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-lots", organizationId] });
@@ -574,15 +635,37 @@ function AdjustmentForm({
   const currentQuantity = currentLevelQuery.data?.[0]?.quantity ?? 0;
 
   const mutation = useMutation({
-    mutationFn: (values: AdjustmentValues) =>
-      createAdjustmentMovement(accessToken, organizationId, {
+    mutationFn: async (values: AdjustmentValues): Promise<MutationResult<MovementOut>> => {
+      const body: AdjustmentCreate = {
+        client_operation_id: crypto.randomUUID(),
         variant_id: values.variant_id,
         depot_id: values.depot_id,
         counted_quantity: values.counted_quantity,
         note: values.note.trim(),
-      }),
-    onSuccess: () => {
-      toast.success("Ajustement enregistré.");
+      };
+      try {
+        const data = await createAdjustmentMovement(accessToken, organizationId, body);
+        return { queued: false, data };
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+        await enqueueOperation({
+          id: body.client_operation_id as string,
+          kind: "stock.movement",
+          organizationId,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          payload: { kind: "adjustment", body },
+        });
+        return { queued: true };
+      }
+    },
+    onSuccess: (result) => {
+      toast.success(
+        result.queued
+          ? "Mouvement enregistré hors connexion — sera synchronisé au retour du réseau."
+          : "Ajustement enregistré.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["stock-levels", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-movements", organizationId] });
       setConfirming(null);
@@ -735,16 +818,38 @@ function TransferForm({
   const { control, register, handleSubmit, formState } = form;
 
   const mutation = useMutation({
-    mutationFn: (values: TransferValues) =>
-      createTransferMovement(accessToken, organizationId, {
+    mutationFn: async (values: TransferValues): Promise<MutationResult<MovementOut[]>> => {
+      const body: TransferCreate = {
+        client_operation_id: crypto.randomUUID(),
         variant_id: values.variant_id,
         from_depot_id: values.from_depot_id,
         to_depot_id: values.to_depot_id,
         quantity: values.quantity,
         note: values.note?.trim() || null,
-      }),
-    onSuccess: () => {
-      toast.success("Transfert enregistré.");
+      };
+      try {
+        const data = await createTransferMovement(accessToken, organizationId, body);
+        return { queued: false, data };
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.kind !== "network") throw err;
+        await enqueueOperation({
+          id: body.client_operation_id as string,
+          kind: "stock.movement",
+          organizationId,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          payload: { kind: "transfer", body },
+        });
+        return { queued: true };
+      }
+    },
+    onSuccess: (result) => {
+      toast.success(
+        result.queued
+          ? "Mouvement enregistré hors connexion — sera synchronisé au retour du réseau."
+          : "Transfert enregistré.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["stock-levels", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["stock-movements", organizationId] });
       onDone();

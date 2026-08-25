@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 
 import { QueryProvider } from "@/lib/api/query-provider";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { ServiceWorkerRegistration } from "@/components/offline/service-worker-registration";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryProvider>
         <AuthProvider>
           <TooltipProvider delayDuration={200}>
+            <ServiceWorkerRegistration />
             {children}
             <Toaster richColors closeButton position="top-right" />
           </TooltipProvider>
