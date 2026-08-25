@@ -1169,6 +1169,28 @@ lisant le code réel plutôt que supposé. Cinq corrections :
    "Enregistrer". Corrigé par le même garde que les autres écrans réservés, et
    le lien "Nouveau modèle" de la navigation masqué pour les non-administrateurs.
 
+6. **Le service worker s'enregistrait aussi en développement** — trouvé en
+   conditions réelles, pas en lecture de code : `registerServiceWorker`
+   (`lib/offline/register-service-worker.ts`) s'enregistrait
+   inconditionnellement, y compris sous `next dev`. Or `public/sw.js` sert les
+   bundles `/_next/static/*` en cache-first en supposant qu'« ils ne changent
+   jamais de contenu sous le même nom de fichier » — vrai pour un build de
+   production (noms versionnés par hash de contenu), **faux** en
+   développement (Turbopack), où le chemin d'un chunk reste stable d'un
+   redémarrage à l'autre même quand son contenu change. Une fois installé, le
+   service worker continuait de servir un bundle JS périmé indéfiniment, quel
+   que soit le nombre de redémarrages du serveur ou de vidages du cache
+   `.next` — observé concrètement : `NEXT_PUBLIC_GOOGLE_CLIENT_ID` venait
+   d'être renseigné, le serveur le rendait bien côté HTML, mais le bundle
+   client déjà mis en cache par le service worker continuait d'exécuter
+   l'ancienne valeur vide, produisant une erreur d'hydratation reproductible à
+   chaque chargement (« Chargement de Google… » côté serveur contre
+   « non configurée » côté client). Corrigé : enregistrement réservé à
+   `NODE_ENV === "production"`, plus une désinscription automatique (et
+   suppression du cache `registre-shell-*`) quand la fonction est appelée
+   hors production, pour les navigateurs qui avaient déjà installé l'ancienne
+   version pendant le développement de ce lot.
+
 Vérifié par `npm run lint` et `npm run build` après chaque correctif.
 
 ## 11. Manuel utilisateur
