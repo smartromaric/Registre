@@ -4,7 +4,9 @@ from app.api.v1.routers import (
     alerts,
     audit,
     auth,
+    catalog,
     documents,
+    editor,
     files,
     members,
     model_definitions,
@@ -13,6 +15,7 @@ from app.api.v1.routers import (
     saved_views,
     search,
     stock,
+    subscriptions,
     templates,
 )
 
@@ -29,4 +32,7 @@ api_router.include_router(alerts.router)
 api_router.include_router(stock.router)
 api_router.include_router(saved_views.router)
 api_router.include_router(search.router)
+api_router.include_router(catalog.router)
+api_router.include_router(subscriptions.router)
+api_router.include_router(editor.router)
 api_router.include_router(files.router)

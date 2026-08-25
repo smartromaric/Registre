@@ -23,6 +23,7 @@ from app.models.user import User
 from app.repositories.membership import MembershipRepository
 from app.repositories.organization import OrganizationRepository
 from app.repositories.user import UserRepository
+from app.services.subscription_service import SubscriptionService
 
 
 class AuthError(Exception):
@@ -153,4 +154,9 @@ class AuthService:
             invited_at=datetime.now(UTC),
         )
         membership = await self.memberships.create(membership)
+
+        # Essai de 14 jours (§4.4, §12.3) — Subscription est la source de vérité du
+        # cycle de vie de l'abonnement à partir d'ici (voir app/services/subscription_service.py).
+        await SubscriptionService(self.db).create_trial_subscription(organization)
+
         return organization, membership

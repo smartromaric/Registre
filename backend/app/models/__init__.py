@@ -19,6 +19,16 @@ from app.models.stock import (
     StockLot,
     StockMovement,
 )
+from app.models.subscription import (
+    Currency,
+    Invoice,
+    Offer,
+    Payment,
+    PaymentMethod,
+    PaymentStatus,
+    Subscription,
+    SubscriptionStatus,
+)
 from app.models.user import User
 
 __all__ = [
@@ -35,6 +45,14 @@ __all__ = [
     "RecordEvent",
     "RecordDeadline",
     "SavedView",
+    "Offer",
+    "Currency",
+    "Subscription",
+    "SubscriptionStatus",
+    "Payment",
+    "PaymentStatus",
+    "PaymentMethod",
+    "Invoice",
     "Document",
     "Alert",
     "AlertSourceType",

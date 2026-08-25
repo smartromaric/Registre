@@ -14,6 +14,7 @@
 5. [Comprendre le champ Échéance et les alertes](#5-comprendre-le-champ-échéance-et-les-alertes)
 6. [Gérer un stock](#6-gérer-un-stock)
 7. [Rechercher, filtrer, exporter et importer](#7-rechercher-filtrer-exporter-et-importer)
+8. [Votre abonnement](#8-votre-abonnement)
 
 ---
 
@@ -156,3 +157,22 @@ vos clients : « sortie pleine » (une bouteille pleine part chez un client) et
   validation. Une fois validé, l'import crée ce qui est valide et vous
   signale le reste — vous ne perdez jamais 200 lignes correctes à cause de 3
   fautives. Le fichier doit être un CSV, les dates au format AAAA-MM-JJ.
+
+## 8. Votre abonnement
+
+Votre essai gratuit dure 14 jours à partir de l'inscription. Un administrateur
+peut à tout moment :
+
+- **Voir l'état de l'abonnement** — essai, actif, lecture seule, suspendu —
+  et sa date d'échéance.
+- **Déclarer un paiement** — après avoir réglé (Mobile Money, virement...) par
+  les moyens indiqués par l'éditeur, cliquez sur « J'ai payé » et indiquez la
+  référence de la transaction. L'éditeur vérifie et valide.
+- **Consulter les factures** — chaque paiement validé génère une facture
+  numérotée, consultable à tout moment.
+
+Si l'abonnement expire sans renouvellement, l'espace passe en **lecture
+seule** pendant 30 jours : vous consultez, filtrez et exportez toujours vos
+données, mais ne pouvez plus rien saisir. Un règlement rouvre l'écriture
+immédiatement, dans l'état exact où vous l'aviez laissé — aucun jour payé
+n'est jamais perdu, même si vous réglez en avance.

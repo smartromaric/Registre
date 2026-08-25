@@ -72,7 +72,16 @@ def require_role(*roles: OrgRole) -> Callable:
     return _check
 
 
-async def require_platform_admin(user: User = Depends(get_current_user)) -> User:
+async def require_platform_admin(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> User:
+    """Cahier des charges §4.3 : l'éditeur n'a par défaut aucun accès aux données
+    métier des organisations (fiches, documents, stocks) — ces tables n'ont pas de
+    politique le concernant, ce drapeau ne les affecte donc pas. Il ne débloque
+    que les tables explicitement conçues pour être pilotées par l'éditeur à
+    travers toutes les organisations (abonnements, paiements, factures — §12, §13).
+    """
     if not user.is_platform_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Réservé à l'éditeur du service.")
+    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
     return user

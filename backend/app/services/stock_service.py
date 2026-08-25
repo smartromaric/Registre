@@ -14,6 +14,7 @@ from app.models.stock import (
     Depot,
     DepotThreshold,
     MovementType,
+    StockLot,
     StockMovement,
 )
 from app.models.user import User
@@ -507,8 +508,6 @@ class StockService:
     ) -> None:
         existing = await self.repo.get_lot(variant_id, depot_id, lot_number)
         if existing is None:
-            from app.models.stock import StockLot
-
             self.db.add(
                 StockLot(
                     organization_id=organization_id,

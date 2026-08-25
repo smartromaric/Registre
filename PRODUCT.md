@@ -275,7 +275,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ✅ |
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | 🔶 (dashboards restants) |
-| 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
+| 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ✅ |
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
 
@@ -424,6 +424,47 @@ depuis le lot 1, jamais exercé en conditions réelles jusqu'ici. Un test HTTP d
 Reste pour clore le lot 3 : les tableaux de bord globaux puis focalisables par
 modèle (§10.2 du cahier des charges) — la pièce la plus visible du lot, qui
 arrivera avec le prochain travail sur le frontend.
+
+### 10.5 Détail du lot 4 livré
+
+- **Catalogue** (§13) : `Offer` et `Currency` ne sont pas cloisonnées par
+  organisation — un catalogue partagé, piloté par l'éditeur (création/mise à jour
+  sans intervention de développement), consultable par tout utilisateur connecté
+  via `/catalog/offers` et `/catalog/currencies` pour choisir une offre.
+- **Cycle de vie de l'abonnement** (§12.3) : `Subscription` (une par organisation,
+  créée automatiquement à l'inscription avec l'essai de 14 jours) traverse
+  essai → actif → lecture seule → suspendu → archivé, entièrement dérivé de
+  dates. `run_lifecycle_scan` est, comme le moteur d'alertes, idempotent par
+  construction : le rejouer ne fait jamais régresser un statut déjà atteint.
+- **Paiement manuel** (§12.4) : le client déclare (« J'ai payé » + référence), une
+  file côté éditeur liste les déclarations, la validation prolonge l'abonnement
+  **à partir de l'échéance en cours — jamais de la date de validation** — pour
+  qu'aucun jour payé ne soit perdu, et émet automatiquement une facture numérotée
+  en séquence (séquence Postgres, pas un `COUNT(*)` applicatif qui serait sujet à
+  une course entre deux validations concurrentes). L'éditeur peut aussi enregistrer
+  un paiement sans déclaration préalable (client réglé par un autre canal).
+- **Espace éditeur** (§13) : liste de toutes les organisations avec statut
+  d'abonnement, échéance et nombre d'utilisateurs ; ajustement manuel d'un
+  abonnement (prolonger/suspendre/réactiver, motif obligatoire, tracé au journal
+  d'audit de l'organisation concernée).
+
+**Décision d'architecture notable — l'éditeur et le cloisonnement (§4.3) :**
+`subscriptions`, `payments` et `invoices` sont les **seules** tables où une
+politique RLS laisse l'éditeur voir à travers toutes les organisations
+(`organization_id = organisation courante OU app.is_platform_admin = true`).
+Nulle part ailleurs : aucune fiche, aucun document, aucun mouvement de stock n'a
+de politique de ce type — l'éditeur y reste sans accès par défaut, exactement
+comme l'exige le cahier des charges. Testé explicitement
+(`test_editor_bypass_does_not_leak_into_business_tables`) : sous contexte
+éditeur pur, les abonnements de toutes les organisations sont visibles, les
+fiches d'aucune ne le sont.
+
+Non fait volontairement : génération de factures en PDF (les données de facture
+sont exposées via l'API ; le rendu PDF est un raffinement possible sans changer
+le modèle), intégration d'un opérateur de paiement mobile (explicitement lot
+ultérieur, §12.4 — le modèle `Payment` est conçu pour l'accueillir sans
+réécriture), téléversement d'une capture du reçu de paiement, annonces de
+l'éditeur aux organisations, statistiques d'activité du service.
 
 ## 11. Manuel utilisateur
 
