@@ -274,7 +274,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | ✅ |
 | 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ✅ |
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
-| 3 | Recherche, vues, import/export, tableaux de bord focalisables | 🔶 (dashboards restants) |
+| 3 | Recherche, vues, import/export, tableaux de bord focalisables | ✅ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ✅ |
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
@@ -422,7 +422,7 @@ donc un `created_at` identique, rendant l'ordre "le plus récent d'abord" de l'h
 non déterministe entre elles. Corrigé par `clock_timestamp()`, qui avance à chaque
 instruction contrairement à `now()` (migration `0fdf30005a2b`).
 
-### 10.4 Détail du lot 3 livré (partiel — reste : tableaux de bord focalisables)
+### 10.4 Détail du lot 3 livré
 
 - **Filtres et tri** (§9) : la liste des fiches accepte des filtres d'égalité sur tout
   champ marqué filtrable (`?filters={"marque":"Toyota"}`) et un tri sur n'importe
@@ -458,6 +458,52 @@ car la réponse tentait de valider un objet Pydantic exigeant une URL signée
 directement depuis l'objet base de données, qui ne porte pas cet attribut — présent
 depuis le lot 1, jamais exercé en conditions réelles jusqu'ici. Un test HTTP dédié
 (`tests/test_documents.py`) couvre maintenant ce chemin.
+
+**Tableaux de bord (§10)**, livrés à part du reste du lot 3 (nécessitaient le module
+Stock du lot 2, contrairement à la recherche/aux vues/à l'export/import) :
+
+- **Vue globale** (§10.1) : `GET .../dashboard` sans `model_id` renvoie, dans l'ordre
+  imposé par le cahier des charges, les quatre indicateurs d'attention — échéances en
+  retard, échéances sous 30 jours, articles sous seuil, lots proches de la péremption
+  (fenêtre alignée sur le palier le plus lointain du moteur d'alertes, 30 jours) — puis
+  seulement ensuite les compteurs de synthèse (nombre total de fiches, valeur du stock).
+  Tous modèles confondus, cloisonné par organisation comme le reste.
+- **Focalisation par modèle** (§10.2, §10.3) : `?model_id=` remplace entièrement les
+  quatre indicateurs d'attention par un bloc propre à la nature du modèle — un jeu de
+  compteurs et deux séries pour un graphique, jamais les mêmes chiffres pour un parc de
+  véhicules et un dépôt de gaz, exactement comme les deux exemples du cahier des
+  charges (§10.2) :
+  - **Actif suivi** : nombre de fiches, répartition par statut, échéances en
+    retard/sous 30 jours, coût des événements sur la période, échéances à venir par
+    mois, coût des interventions par mois.
+  - **Article de stock** : quantité totale disponible, nombre d'articles sous seuil,
+    valeur du stock, entrées/sorties de la période, lots proches de la péremption,
+    stock par variante, stock par dépôt, mouvements par jour.
+  - Filtres additionnels : `depot_id` (stock), `site` (actif suivi — champ déjà présent
+    sur toute fiche depuis le lot 0), `period` (`7d`/`30d`/`90d`/`current_year`, §10.4).
+- **Indicateurs cliquables** (§10.5) : trois routes de liste partagent exactement le
+  même filtrage que les compteurs qu'elles détaillent — `GET .../dashboard/deadlines`
+  (`status=overdue|upcoming`), `.../dashboard/understock`, `.../dashboard/expiring-lots`
+  — jamais un nombre affiché sans une liste ouvrable derrière pour savoir "lesquelles".
+- **Montants soumis à autorisation** (§4.2, §10.3) : `stock_value`, `total_stock_value`,
+  `event_cost_total`/`event_cost_by_month` valent `null` plutôt que d'être omis quand
+  l'utilisateur n'a pas le droit de voir les montants (`Action.VIEW_AMOUNTS` **et**
+  `Membership.can_view_amounts` — la colonne existait depuis le lot 0 mais n'était
+  encore consultée nulle part ; les tableaux de bord sont le premier endroit qui
+  l'applique réellement).
+- **Tableaux de bord enregistrés et épinglés** (§10.4) : `saved_dashboards`
+  (organisation + créateur, périmètre modèle/dépôt/site + période, nommé). Un seul
+  épinglé à la fois par utilisateur, appliqué au niveau service plutôt que par une
+  contrainte d'unicité partielle en base — épingler en désépingle un autre plutôt que
+  d'échouer. Privé à son créateur, même principe que les vues enregistrées (§9).
+
+**Correctif trouvé en écrivant les tests d'agrégation par mois** : grouper par
+`to_char(colonne, 'YYYY-MM')` en appelant `func.to_char(...)` séparément pour le
+`SELECT`, le `GROUP BY` et l'`ORDER BY` produit trois paramètres liés distincts pour la
+même chaîne `'YYYY-MM'` — PostgreSQL ne peut alors plus prouver, au moment de préparer
+la requête (avant que les paramètres ne soient liés à une valeur), que l'expression du
+`SELECT` est bien celle du `GROUP BY`, et rejette la requête. Corrigé en construisant
+l'expression une seule fois et en réutilisant le même objet dans les trois clauses.
 
 Reste pour clore le lot 3 : les tableaux de bord globaux puis focalisables par
 modèle (§10.2 du cahier des charges) — la pièce la plus visible du lot, qui
