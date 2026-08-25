@@ -1,0 +1,1751 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; padding: 0; }
+  img, svg { display: block; max-width: 100%; }
+  table { border-collapse: collapse; }
+  html { -webkit-text-size-adjust: 100%; }
+  #theme-toggle {
+    position: fixed; top: 1rem; right: 1rem; z-index: 50;
+    font-family: "IBM Plex Mono", Consolas, monospace;
+    font-size: .66rem; letter-spacing: .1em; text-transform: uppercase;
+    padding: .4rem .7rem; border-radius: 3px; cursor: pointer;
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--rule);
+  }
+  #theme-toggle:hover, #theme-toggle:focus-visible { color: var(--accent); border-color: var(--accent); }
+  @media print { #theme-toggle { display: none; } }
+</style>
+<title>Cahier des charges Registre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground: #F4F6F4;
+    --surface: #FFFFFF;
+    --surface-alt: #EDF1EF;
+    --ink: #0F2C29;
+    --ink-soft: #2C4B47;
+    --muted: #5B706C;
+    --rule: #D2DCD9;
+    --rule-soft: #E4EAE8;
+    --accent: #0E6E63;
+    --accent-soft: #E0EEEB;
+    --ok: #2E7D32;
+    --ok-soft: #E4F0E4;
+    --warn: #B26B00;
+    --warn-soft: #F7EBD9;
+    --later: #6B7B78;
+    --later-soft: #E7EBEA;
+    --crit: #B3261E;
+    --shadow: 0 1px 2px rgba(15, 44, 41, .05), 0 8px 24px rgba(15, 44, 41, .05);
+
+    --f-display: "Spectral", Georgia, "Times New Roman", serif;
+    --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --f-mono: "IBM Plex Mono", "Consolas", ui-monospace, monospace;
+
+    --measure: 66ch;
+    --gap: 1.15rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0B1615;
+      --surface: #12211F;
+      --surface-alt: #182B28;
+      --ink: #E3EDEA;
+      --ink-soft: #C2D2CE;
+      --muted: #8FA5A0;
+      --rule: #263A36;
+      --rule-soft: #1D2E2B;
+      --accent: #4FC7B6;
+      --accent-soft: #12332F;
+      --ok: #6FBF73;
+      --ok-soft: #16301A;
+      --warn: #E0A34B;
+      --warn-soft: #33260F;
+      --later: #90A4A0;
+      --later-soft: #1E2E2C;
+      --crit: #F2837A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0B1615;
+    --surface: #12211F;
+    --surface-alt: #182B28;
+    --ink: #E3EDEA;
+    --ink-soft: #C2D2CE;
+    --muted: #8FA5A0;
+    --rule: #263A36;
+    --rule-soft: #1D2E2B;
+    --accent: #4FC7B6;
+    --accent-soft: #12332F;
+    --ok: #6FBF73;
+    --ok-soft: #16301A;
+    --warn: #E0A34B;
+    --warn-soft: #33260F;
+    --later: #90A4A0;
+    --later-soft: #1E2E2C;
+    --crit: #F2837A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- shell ---------- */
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  @media (min-width: 1020px) {
+    .shell {
+      grid-template-columns: 220px minmax(0, 1fr);
+      align-items: start;
+      gap: 3.5rem;
+    }
+  }
+
+  /* ---------- cartouche ---------- */
+
+  .cartouche {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--rule);
+    padding: 3.5rem 0 2.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .cartouche h1 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 5.2vw, 3.4rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+
+  .cartouche .lede {
+    font-family: var(--f-display);
+    font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 58ch;
+  }
+
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem 1.75rem;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 1.25rem;
+  }
+
+  .meta div {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+
+  .meta dt, .meta .k {
+    font-family: var(--f-mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .meta .v {
+    font-size: .93rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- sommaire ---------- */
+
+  nav.toc {
+    font-size: .85rem;
+  }
+
+  @media (min-width: 1020px) {
+    nav.toc {
+      position: sticky;
+      top: 1.75rem;
+      max-height: calc(100vh - 3.5rem);
+      overflow-y: auto;
+    }
+  }
+
+  nav.toc .eyebrow {
+    display: block;
+    padding-bottom: .6rem;
+    margin-bottom: .6rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  nav.toc ol {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+  }
+
+  nav.toc a {
+    display: grid;
+    grid-template-columns: 1.9rem 1fr;
+    gap: .35rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: .18rem 0;
+    line-height: 1.35;
+    border-radius: 3px;
+  }
+
+  nav.toc a .n {
+    font-family: var(--f-mono);
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    padding-top: .1em;
+  }
+
+  nav.toc a:hover, nav.toc a:focus-visible {
+    color: var(--accent);
+  }
+
+  /* ---------- corps ---------- */
+
+  main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  section.art {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--gap);
+    scroll-margin-top: 1.5rem;
+  }
+
+  section.art > * { min-width: 0; }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(1.45rem, 3vw, 1.9rem);
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    padding-bottom: .55rem;
+    border-bottom: 2px solid var(--ink);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .75rem;
+    align-items: baseline;
+  }
+
+  h2 .n {
+    font-family: var(--f-mono);
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: .04em;
+  }
+
+  h3 {
+    font-family: var(--f-body);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: .002em;
+    margin-top: .6rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .7rem;
+    align-items: baseline;
+  }
+
+  h3 .n {
+    font-family: var(--f-mono);
+    font-size: .76rem;
+    font-weight: 400;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  h4 {
+    font-family: var(--f-mono);
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: .4rem;
+  }
+
+  p, ul, ol.body {
+    max-width: var(--measure);
+  }
+
+  ul.body, ol.body {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    padding-left: 1.15rem;
+  }
+
+  ul.body { list-style: none; padding-left: 0; }
+
+  ul.body > li {
+    padding-left: 1.15rem;
+    position: relative;
+  }
+
+  ul.body > li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  ol.body { list-style: decimal; }
+  ol.body > li { padding-left: .25rem; }
+  ol.body > li::marker {
+    font-family: var(--f-mono);
+    font-size: .85em;
+    color: var(--muted);
+  }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  a { color: var(--accent); }
+
+  code, .mono {
+    font-family: var(--f-mono);
+    font-size: .88em;
+  }
+
+  /* ---------- puces de statut ---------- */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-family: var(--f-mono);
+    font-size: .66rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    padding: .17rem .45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    line-height: 1.3;
+    border: 1px solid transparent;
+  }
+
+  .chip.v1 { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+  .chip.opt { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .chip.v2 { background: var(--later-soft); color: var(--later); border-color: var(--later); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    padding: 1rem 1.15rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+
+  .legend div {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    font-size: .86rem;
+    color: var(--muted);
+  }
+
+  /* ---------- tableaux ---------- */
+
+  .scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .885rem;
+    min-width: 520px;
+  }
+
+  thead th {
+    text-align: left;
+    font-family: var(--f-mono);
+    font-weight: 500;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-alt);
+    padding: .6rem .8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: bottom;
+  }
+
+  tbody td, tbody th {
+    padding: .62rem .8rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  tbody th {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
+
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.c, th.c { text-align: center; }
+
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--muted); opacity: .55; }
+
+  caption {
+    caption-side: bottom;
+    text-align: left;
+    padding: .6rem .8rem;
+    font-size: .8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--rule-soft);
+  }
+
+  /* ---------- encadrés ---------- */
+
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.15rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .box > p, .box > ul { max-width: 60ch; }
+
+  .box.ex {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .box.alert {
+    background: var(--warn-soft);
+    border-color: var(--warn);
+  }
+
+  .box .label {
+    font-family: var(--f-mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .box.ex .label { color: var(--accent); }
+  .box.alert .label { color: var(--warn); }
+
+  /* maquette de notification */
+  .notif {
+    font-family: var(--f-body);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    padding: .8rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    max-width: 46ch;
+    box-shadow: var(--shadow);
+  }
+
+  .notif .t { font-weight: 600; font-size: .92rem; }
+  .notif .d { font-size: .85rem; color: var(--muted); }
+  .notif .w { font-family: var(--f-mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--warn); }
+
+  /* ---------- frise des lots ---------- */
+
+  .lots {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .lot {
+    display: grid;
+    grid-template-columns: 3.4rem 1fr;
+    gap: 1rem;
+    padding: .95rem 1.15rem;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+
+  .lot:last-child { border-bottom: 0; }
+
+  .lot .id {
+    font-family: var(--f-mono);
+    font-size: .74rem;
+    letter-spacing: .06em;
+    color: var(--accent);
+    padding-top: .18em;
+  }
+
+  .lot .body-l { display: flex; flex-direction: column; gap: .25rem; }
+  .lot .name { font-weight: 600; font-size: .95rem; }
+  .lot .desc { font-size: .875rem; color: var(--muted); max-width: 58ch; }
+  .lot .est { font-family: var(--f-mono); font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- questions ---------- */
+
+  ol.questions {
+    list-style: none;
+    counter-reset: q;
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+    max-width: var(--measure);
+  }
+
+  ol.questions > li {
+    counter-increment: q;
+    display: grid;
+    grid-template-columns: 2.2rem 1fr;
+    gap: .75rem;
+    padding-bottom: .8rem;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  ol.questions > li:last-child { border-bottom: 0; }
+
+  ol.questions > li::before {
+    content: attr(data-ref);
+    font-family: var(--f-mono);
+    font-size: .74rem;
+    color: var(--warn);
+    padding-top: .28em;
+  }
+
+  ol.questions .q { font-weight: 500; }
+  ol.questions .prop { font-size: .875rem; color: var(--muted); display: block; margin-top: .15rem; }
+
+  footer.sig {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule);
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    font-size: .84rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 2rem;
+    justify-content: space-between;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  /* ---------- maquette de tableau de bord ---------- */
+
+  .dash {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .dash-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem .7rem;
+    padding: .7rem .9rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-alt);
+  }
+
+  .dash-head .title { font-weight: 600; font-size: .92rem; margin-right: .35rem; }
+
+  .pick {
+    font-family: var(--f-mono);
+    font-size: .66rem;
+    letter-spacing: .06em;
+    padding: .22rem .5rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--muted);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  .pick.on { color: var(--surface); background: var(--accent); border-color: var(--accent); }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px;
+    background: var(--rule-soft);
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: .85rem .9rem;
+    display: flex;
+    flex-direction: column;
+    gap: .22rem;
+  }
+
+  .tile .lab {
+    font-family: var(--f-mono);
+    font-size: .63rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .tile .val {
+    font-family: var(--f-display);
+    font-weight: 500;
+    font-size: 1.7rem;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .755rem;
+    color: var(--muted);
+  }
+
+  .state .dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; }
+  .state.crit { color: var(--crit); } .state.crit .dot { background: var(--crit); }
+  .state.warnst { color: var(--warn); } .state.warnst .dot { background: var(--warn); }
+  .state.okst { color: var(--ok); } .state.okst .dot { background: var(--ok); }
+
+  .bars {
+    padding: .9rem;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    border-top: 1px solid var(--rule-soft);
+  }
+
+  .bars .cap {
+    font-family: var(--f-mono);
+    font-size: .63rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .15rem;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr 2.2rem;
+    gap: .6rem;
+    align-items: center;
+    font-size: .8rem;
+  }
+
+  .bar-track { height: 10px; background: var(--surface-alt); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .bar-row .n { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+
+  /* ---------- parcours ---------- */
+
+  .persona {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: .8rem 1rem;
+    background: var(--surface-alt);
+    border-radius: 4px;
+    max-width: var(--measure);
+  }
+
+  .persona .who { font-weight: 600; font-size: .95rem; }
+  .persona .ctx { font-size: .87rem; color: var(--muted); }
+
+  ol.steps {
+    list-style: none;
+    counter-reset: st;
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+    max-width: var(--measure);
+    border-left: 2px solid var(--rule);
+    padding-left: 1.4rem;
+    margin-left: .7rem;
+  }
+
+  ol.steps > li {
+    counter-increment: st;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+
+  ol.steps > li::before {
+    content: counter(st);
+    position: absolute;
+    left: -2.1rem;
+    top: 0;
+    width: 1.4rem;
+    height: 1.4rem;
+    display: grid;
+    place-items: center;
+    font-family: var(--f-mono);
+    font-size: .66rem;
+    color: var(--surface);
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  ol.steps .when {
+    font-family: var(--f-mono);
+    font-size: .66rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  @media print {
+    body { background: #fff; color: #000; font-size: 10.5pt; }
+    .shell { grid-template-columns: 1fr; max-width: none; padding: 0; }
+    nav.toc { display: none; }
+    section.art { break-inside: avoid-page; }
+    h2 { break-after: avoid; }
+    .scroll { overflow: visible; border-color: #999; }
+    table { min-width: 0; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="cartouche">
+    <span class="eyebrow">Cahier des charges &middot; Version 0.2 &middot; Pour validation</span>
+    <h1>Registre</h1>
+    <p class="lede">Une plateforme de gestion en ligne, louée par abonnement, dans laquelle chaque entreprise déclare elle-même ce qu'elle suit — ses véhicules, ses stocks, ses documents — et se fait prévenir avant qu'une échéance ne tombe ou qu'un stock ne s'épuise.</p>
+    <div class="meta">
+      <div><span class="k">Document</span><span class="v">Cahier des charges fonctionnel</span></div>
+      <div><span class="k">Version</span><span class="v">0.2</span></div>
+      <div><span class="k">Date</span><span class="v">24 août 2026</span></div>
+      <div><span class="k">Statut</span><span class="v">6 arbitrages intégrés</span></div>
+      <div><span class="k">Périmètre</span><span class="v">Version 1 du produit</span></div>
+      <div><span class="k">Nom de travail</span><span class="v">« Registre » — provisoire</span></div>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Sommaire">
+    <span class="eyebrow">Sommaire</span>
+    <ol>
+      <li><a href="#a1"><span class="n">1</span><span>Contexte et objectifs</span></a></li>
+      <li><a href="#a2"><span class="n">2</span><span>Périmètre</span></a></li>
+      <li><a href="#a3"><span class="n">3</span><span>Vocabulaire</span></a></li>
+      <li><a href="#a4"><span class="n">4</span><span>Acteurs et droits</span></a></li>
+      <li><a href="#a5"><span class="n">5</span><span>Le socle : moteur de fiches</span></a></li>
+      <li><a href="#a6"><span class="n">6</span><span>Module Actifs suivis</span></a></li>
+      <li><a href="#a7"><span class="n">7</span><span>Module Stock</span></a></li>
+      <li><a href="#a8"><span class="n">8</span><span>Échéances et alertes</span></a></li>
+      <li><a href="#a9"><span class="n">9</span><span>Recherche, vues, exports</span></a></li>
+      <li><a href="#a10"><span class="n">10</span><span>Tableaux de bord</span></a></li>
+      <li><a href="#a11"><span class="n">11</span><span>Mode hors-ligne</span></a></li>
+      <li><a href="#a12"><span class="n">12</span><span>Abonnements</span></a></li>
+      <li><a href="#a13"><span class="n">13</span><span>Espace éditeur</span></a></li>
+      <li><a href="#a14"><span class="n">14</span><span>Exigences techniques</span></a></li>
+      <li><a href="#a15"><span class="n">15</span><span>Architecture proposée</span></a></li>
+      <li><a href="#a16"><span class="n">16</span><span>Lots de livraison</span></a></li>
+      <li><a href="#a17"><span class="n">17</span><span>Décisions et points ouverts</span></a></li>
+      <li><a href="#a18"><span class="n">18</span><span>Le produit en fonctionnement</span></a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <div class="legend" role="note">
+      <div><span class="chip v1">v1</span> Retenu pour la première version</div>
+      <div><span class="chip opt">à valider</span> Attend une décision du client (§17)</div>
+      <div><span class="chip v2">ultérieur</span> Hors périmètre, prévu au cadrage</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Ce qui change depuis la version 0.1</span>
+      <ul class="body">
+        <li><strong>Deux fonctions ajoutées</strong> : l'inscription et la connexion par compte Google en un clic (§4.4), et les tableaux de bord focalisables sur un seul modèle (§10.2).</li>
+        <li><strong>Les offres ne sont plus identiques.</strong> Elles diffèrent désormais par le quota de stockage et le nombre d'utilisateurs, et non plus seulement par la durée (§12.1). Les fonctionnalités, elles, restent toutes ouvertes dans les trois offres.</li>
+        <li><strong>Six points arbitrés</strong> : encaissement, durées du cycle d'abonnement, tarif annuel, quotas, hébergement, recette. Le détail est au §17.1.</li>
+        <li><strong>Une annexe de parcours</strong> a été ajoutée (§18) : trois journées types qui montrent le produit en fonctionnement, de l'inscription à l'alerte.</li>
+      </ul>
+    </div>
+
+    <!-- 1 -->
+    <section class="art" id="a1">
+      <h2><span class="n">§1</span><span>Contexte et objectifs</span></h2>
+
+      <p>Les entreprises visées gèrent aujourd'hui leur parc et leurs stocks sur des cahiers, des classeurs et des fichiers Excel dispersés. La conséquence est toujours la même : une assurance découverte périmée le jour d'un contrôle, une visite technique oubliée, un dépôt en rupture un vendredi soir.</p>
+
+      <p>Le pari du produit est de <strong>ne pas livrer une application par métier</strong>. Plutôt qu'un logiciel « parc automobile », un autre « stock de gaz » et un troisième « prêt-à-porter », Registre fournit un socle unique dans lequel chaque entreprise déclare ce qu'elle suit et sous quelles conditions elle veut être prévenue.</p>
+
+      <p>Pour éviter l'effet « page blanche » que produisent les outils entièrement configurables, la plateforme est livrée avec une <strong>bibliothèque de modèles prêts à l'emploi</strong> que l'entreprise active en un clic, puis adapte.</p>
+
+      <p>Si la lecture d'un cahier des charges par articles rend le produit difficile à se représenter, l'annexe <a href="#a18">§18</a> suit une entreprise fictive sur six mois, de l'inscription au renouvellement de son abonnement. Elle ne contient aucune exigence nouvelle : elle montre les mêmes en fonctionnement.</p>
+
+      <h3><span class="n">1.1</span><span>Objectifs mesurables</span></h3>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th style="width:4.5rem">Réf.</th><th>Objectif</th><th style="width:11rem">Mesure de réussite</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="mono">O1</th><td>Une entreprise doit obtenir un parc de véhicules exploitable sans assistance.</td><td>Moins de 30 minutes entre l'inscription et la première fiche complète, à partir d'un modèle prêt.</td></tr>
+            <tr><th class="mono">O2</th><td>Aucune échéance ne doit expirer sans avoir été signalée.</td><td>Au moins une alerte émise 30 jours avant la date, pour 100 % des échéances renseignées.</td></tr>
+            <tr><th class="mono">O3</th><td>Un agent de dépôt doit pouvoir travailler sans réseau.</td><td>Saisie d'un mouvement de stock et prise de photo hors connexion, synchronisées au retour du réseau sans perte.</td></tr>
+            <tr><th class="mono">O4</th><td>Aucune donnée d'une entreprise ne doit être visible par une autre.</td><td>Cloisonnement vérifié à chaque requête et couvert par des tests automatisés.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="art" id="a2">
+      <h2><span class="n">§2</span><span>Périmètre</span></h2>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th style="width:8rem">Statut</th><th>Fonction</th><th>Précision</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="chip v1">v1</span></td><th>Socle multi-entreprises</th><td>Comptes, organisations cloisonnées, rôles et droits.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Inscription et connexion Google</th><td>Création de compte en un clic par compte Google, avec repli par e-mail et mot de passe.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Moteur de modèles de fiche</th><td>L'entreprise définit ses propres objets et ses propres champs.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Bibliothèque de modèles prêts</th><td>Véhicule, Stock de gaz, Vêtements, Personnel, Extincteur, Contrat.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Module Actifs suivis</th><td>Objets uniques, leurs documents, leurs échéances, leur historique.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Module Stock</th><td>Articles, variantes, dépôts, mouvements, seuils, inventaires.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Moteur d'échéances et d'alertes</th><td>Balayage quotidien, règles de rappel, cycle de vie des alertes.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Notifications dans l'application</th><td>Centre de notifications, badge, e-mail en secours.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Tableaux de bord focalisables</th><td>Vue globale, puis vue restreinte à un seul modèle — les véhicules, le gaz, les vêtements.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Mode hors-ligne</th><td>Application web installable (PWA), saisie sans réseau, synchronisation.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Abonnements</th><td>Trois durées, quota de stockage et nombre d'utilisateurs propres à chaque offre, devise configurable, lecture seule à l'expiration.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Espace éditeur</th><td>Pilotage du service : offres, prix, quotas, devises, organisations, encaissements.</td></tr>
+            <tr><td><span class="chip v1">v1</span></td><th>Encaissement manuel</th><td>Le paiement est reçu hors plateforme et enregistré par l'éditeur, qui émet la facture. <em>Arbitré (Q2).</em></td></tr>
+            <tr><td><span class="chip v2">ultérieur</span></td><th>Encaissement automatisé</th><td>Intégration d'un opérateur de paiement mobile. L'architecture v1 la prévoit (§12.4).</td></tr>
+            <tr><td><span class="chip v2">ultérieur</span></td><th>Notifications WhatsApp</th><td>Appairage par QR du numéro d'un gestionnaire. Reporté, mais l'architecture v1 le prévoit (§8.7).</td></tr>
+            <tr><td><span class="chip v2">ultérieur</span></td><th>Application mobile native</th><td>La PWA couvre le besoin terrain en v1.</td></tr>
+            <tr><td><span class="chip v2">ultérieur</span></td><th>API publique, multilingue, géolocalisation temps réel, comptabilité</th><td>Explicitement hors de la v1.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="art" id="a3">
+      <h2><span class="n">§3</span><span>Vocabulaire</span></h2>
+      <p>Les termes suivants sont employés avec ce sens précis dans tout le document et devront l'être dans l'interface.</p>
+
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:12rem">Terme</th><th>Définition</th></tr></thead>
+          <tbody>
+            <tr><th>Organisation</th><td>Une entreprise cliente et l'ensemble de ses données. C'est l'unité d'abonnement et de cloisonnement.</td></tr>
+            <tr><th>Modèle de fiche</th><td>Le gabarit d'un type d'objet suivi : sa liste de champs. Exemple : « Véhicule ».</td></tr>
+            <tr><th>Fiche</th><td>Un objet réel créé à partir d'un modèle. Exemple : le véhicule immatriculé CE 456 AB.</td></tr>
+            <tr><th>Champ</th><td>Une information portée par une fiche, avec son type et ses règles.</td></tr>
+            <tr><th>Échéance</th><td>Un champ particulier : une date de fin de validité, son justificatif et sa règle de rappel.</td></tr>
+            <tr><th>Article</th><td>Un bien géré en quantité, non suivi pièce par pièce. Exemple : la bouteille de gaz 12,5 kg.</td></tr>
+            <tr><th>Variante</th><td>Une déclinaison d'un article selon des attributs. Exemple : chemise blanche, taille M.</td></tr>
+            <tr><th>Dépôt</th><td>Un lieu de stockage. Les quantités sont toujours rattachées à un dépôt.</td></tr>
+            <tr><th>Mouvement</th><td>Une entrée, une sortie, un transfert ou un ajustement de quantité, daté et attribué.</td></tr>
+            <tr><th>Alerte</th><td>Un signalement produit par le moteur : échéance proche, stock sous seuil, lot bientôt périmé.</td></tr>
+            <tr><th>Offre</th><td>Une durée d'abonnement et son prix.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="art" id="a4">
+      <h2><span class="n">§4</span><span>Acteurs et droits</span></h2>
+
+      <h3><span class="n">4.1</span><span>Les cinq rôles</span></h3>
+      <ul class="body">
+        <li><strong>Éditeur (super-administrateur)</strong> — exploite le service. Gère les offres, les prix, les devises et les organisations. <em>Il ne consulte pas les données métier des clients</em> (§4.3).</li>
+        <li><strong>Administrateur d'organisation</strong> — le dirigeant ou le responsable informatique du client. Crée les modèles de fiche, invite les utilisateurs, gère l'abonnement.</li>
+        <li><strong>Gestionnaire</strong> — responsable d'un domaine : le chef de parc, le responsable du dépôt. Crée et modifie les fiches dont il a la charge, reçoit les alertes correspondantes.</li>
+        <li><strong>Opérateur</strong> — l'agent de terrain. Saisit les mouvements de stock, photographie les documents, met à jour les champs autorisés. Ne voit pas les montants s'il n'y est pas habilité.</li>
+        <li><strong>Lecteur</strong> — consulte et exporte, ne modifie rien. Typiquement un comptable ou un auditeur.</li>
+      </ul>
+
+      <h3><span class="n">4.2</span><span>Matrice des droits</span></h3>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th class="c">Éditeur</th>
+              <th class="c">Admin</th>
+              <th class="c">Gestion.</th>
+              <th class="c">Opérat.</th>
+              <th class="c">Lecteur</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th>Créer et modifier les modèles de fiche</th><td class="c no">—</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Créer et modifier une fiche</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c">partiel</td><td class="c no">—</td></tr>
+            <tr><th>Supprimer une fiche (mise en archive)</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Saisir un mouvement de stock</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td></tr>
+            <tr><th>Valider un inventaire</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Voir les montants et valorisations</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c">option</td><td class="c yes">✓</td></tr>
+            <tr><th>Configurer les règles d'alerte</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Inviter et gérer les utilisateurs</th><td class="c no">—</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Gérer l'abonnement et la facturation</th><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Exporter les données</th><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c yes">✓</td></tr>
+            <tr><th>Consulter le journal d'audit</th><td class="c no">—</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td></tr>
+            <tr><th>Gérer les offres, prix et devises du service</th><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td></tr>
+          </tbody>
+          <caption>« Partiel » et « option » : réglable modèle par modèle et champ par champ par l'administrateur de l'organisation.</caption>
+        </table>
+      </div>
+
+      <h3><span class="n">4.3</span><span>Accès de l'éditeur aux données clients</span></h3>
+      <div class="box alert">
+        <span class="label">Exigence</span>
+        <p>L'éditeur du service ne dispose <strong>d'aucun accès par défaut</strong> aux fiches, documents et stocks d'une organisation. Une intervention de support nécessite une autorisation explicite de l'administrateur de l'organisation, limitée dans le temps, et toute consultation effectuée dans ce cadre est inscrite au journal d'audit de l'organisation, visible par celle-ci.</p>
+      </div>
+
+      <h3><span class="n">4.4</span><span>Créer son compte et se connecter</span></h3>
+      <p>L'inscription se fait <strong>en un clic avec un compte Google</strong>. C'est le chemin principal, mis en avant sur la page d'accueil : pas de mot de passe à inventer, pas d'e-mail de confirmation à attendre, pas de mot de passe oublié trois semaines plus tard. Un second chemin par e-mail et mot de passe reste disponible pour ceux qui n'ont pas de compte Google.</p>
+
+      <div class="box ex">
+        <span class="label">Exemple — Awa crée son espace, mardi 14 h 02</span>
+        <ol class="steps">
+          <li><span class="when">14 h 02 &middot; 3 secondes</span><span>Elle clique sur <strong>« Continuer avec Google »</strong>, choisit son compte professionnel, accepte le partage de son nom et de son adresse. Aucun formulaire.</span></li>
+          <li><span class="when">14 h 02 &middot; 20 secondes</span><span>L'application lui demande trois choses seulement : le <strong>nom de son entreprise</strong>, son <strong>pays</strong> — qui fixe la devise (§12.2) — et son <strong>secteur</strong>, qui sert à lui proposer les bons modèles.</span></li>
+          <li><span class="when">14 h 03</span><span>Son organisation existe, elle en est l'administratrice, son essai de 14 jours démarre. Elle arrive sur un écran qui lui propose d'activer un modèle prêt à l'emploi.</span></li>
+        </ol>
+      </div>
+
+      <h4>Ce que cela implique</h4>
+      <ul class="body">
+        <li>Une invitation envoyée à un collaborateur qui possède déjà un compte Google lui permet de rejoindre l'organisation <strong>sans créer de mot de passe</strong> non plus.</li>
+        <li>Une même adresse Google peut appartenir à <strong>plusieurs organisations</strong> — un comptable qui suit trois entreprises bascule de l'une à l'autre depuis un sélecteur. Le cloisonnement des données reste entier.</li>
+        <li>Si un compte Google devient inaccessible, l'administrateur peut rattacher une adresse et un mot de passe classiques au même utilisateur : <strong>on ne perd jamais l'accès à une organisation</strong> à cause d'un compte externe.</li>
+        <li>Aucune donnée n'est envoyée à Google en dehors de l'authentification elle-même.</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section class="art" id="a5">
+      <h2><span class="n">§5</span><span>Le socle : moteur de fiches</span></h2>
+
+      <p>C'est la pièce centrale du produit. Elle permet à une organisation de décrire ce qu'elle suit sans développement.</p>
+
+      <h3><span class="n">5.1</span><span>Un modèle de fiche</span></h3>
+      <p>L'administrateur définit un modèle en lui donnant un nom au singulier et au pluriel, une icône, une couleur, le champ qui sert de titre à la fiche, sa nature (<strong>actif suivi</strong> ou <strong>article de stock</strong>, §5.5), sa liste de champs et l'ordre d'affichage, les colonnes de la vue liste par défaut, et les rôles autorisés.</p>
+
+      <h3><span class="n">5.2</span><span>Types de champs disponibles</span></h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:11rem">Type</th><th>Usage</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><th>Texte court</th><td>Identifiants et noms</td><td>Immatriculation « CE 456 AB »</td></tr>
+            <tr><th>Texte long</th><td>Descriptions, observations</td><td>État constaté à la réception</td></tr>
+            <tr><th>Nombre</th><td>Compteurs et quantités, avec unité</td><td>Kilométrage : 84 320 km</td></tr>
+            <tr><th>Montant</th><td>Valeurs monétaires, dans la devise de l'organisation</td><td>Valeur d'achat : 8 500 000</td></tr>
+            <tr><th>Date</th><td>Date simple, sans alerte</td><td>Date d'acquisition</td></tr>
+            <tr><th class="mono" style="font-family:var(--f-body);font-weight:600">Échéance</th><td><strong>Date de fin de validité + justificatif + règle de rappel.</strong> Le champ pivot du produit.</td><td>Visite technique, valide jusqu'au 11/04/2026</td></tr>
+            <tr><th>Oui / Non</th><td>États binaires</td><td>Véhicule climatisé</td></tr>
+            <tr><th>Liste de choix</th><td>Valeurs contrôlées, choix simple ou multiple</td><td>Carburant : essence / gasoil / GPL</td></tr>
+            <tr><th>Document</th><td>PDF ou image scannée</td><td>Carte grise</td></tr>
+            <tr><th>Photo</th><td>Une ou plusieurs images, compressées à l'envoi</td><td>Photos du véhicule</td></tr>
+            <tr><th>Téléphone</th><td>Numéro, cliquable pour appeler</td><td>Contact du chauffeur</td></tr>
+            <tr><th>Lien vers une fiche</th><td>Relation vers un autre modèle</td><td>Chauffeur → fiche du modèle Personnel</td></tr>
+            <tr><th>Position</th><td>Coordonnées relevées depuis le terrain</td><td>Emplacement d'un groupe électrogène</td></tr>
+            <tr><th>Code</th><td>Code-barres ou QR rattaché à la fiche, scannable</td><td>Étiquette d'inventaire</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3><span class="n">5.3</span><span>Réglages disponibles sur chaque champ</span></h3>
+      <p>Obligatoire ou non ; valeur unique dans l'organisation ; valeur par défaut ; texte d'aide affiché à la saisie ; visible et modifiable par tel rôle ; affiché ou non dans la vue liste ; utilisable ou non comme filtre.</p>
+
+      <h3><span class="n">5.4</span><span>Le champ Échéance en détail</span></h3>
+      <p>Un champ Échéance regroupe trois informations qui, dans un tableur, sont toujours séparées et donc toujours désynchronisées : la date de fin de validité, le justificatif scanné, et la règle de rappel.</p>
+      <div class="box ex">
+        <span class="label">Exemple — champ « Visite technique » du modèle Véhicule</span>
+        <p>Valide jusqu'au <strong>11/04/2026</strong> &middot; justificatif : <code>VT_CE456AB_2025.pdf</code> &middot; rappels : <strong>J-60, J-30, J-7, le jour même</strong>, puis tous les 3 jours en retard &middot; destinataire : le gestionnaire du parc.</p>
+        <p>Lorsque le gestionnaire renouvelle la visite et saisit la nouvelle date, l'alerte en cours se referme d'elle-même, l'ancien justificatif est conservé dans l'historique de la fiche, et le nouveau cycle de rappels démarre.</p>
+      </div>
+
+      <h3><span class="n">5.5</span><span>Deux natures d'objets, un seul socle</span></h3>
+      <p>La distinction structure toute l'application, parce que la question métier n'est pas la même dans les deux cas.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:9rem"></th><th>Actif suivi</th><th>Article de stock</th></tr></thead>
+          <tbody>
+            <tr><th>Question posée</th><td>« Qu'est-ce qui va expirer ? »</td><td>« Combien m'en reste-t-il ? »</td></tr>
+            <tr><th>Identification</th><td>Pièce par pièce, identifiant unique</td><td>Par quantité, pièces interchangeables</td></tr>
+            <tr><th>Saisie</th><td>Une fiche remplie une fois, mise à jour ponctuellement</td><td>Des mouvements enregistrés en continu</td></tr>
+            <tr><th>Alerte type</th><td>Échéance proche</td><td>Passage sous le seuil</td></tr>
+            <tr><th>Exemples</th><td>Véhicules, extincteurs, employés, contrats, groupes électrogènes</td><td>Bouteilles de gaz, vêtements, pièces détachées, consommables</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Les deux modules partagent le même socle : mêmes types de champs, même gestion des fichiers, même moteur d'alertes, mêmes droits, même journal.</p>
+
+      <h3><span class="n">5.6</span><span>Bibliothèque de modèles prêts à l'emploi</span></h3>
+      <p>Six modèles sont livrés avec la v1. L'organisation les active, puis ajoute, retire ou renomme les champs à sa guise — un modèle activé devient sa propriété et n'est plus lié au modèle d'origine.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:10rem">Modèle</th><th>Nature</th><th>Champs livrés</th></tr></thead>
+          <tbody>
+            <tr><th>Véhicule</th><td>Actif</td><td>Immatriculation, photos, marque, modèle, carburant, kilométrage, carte grise, visite technique, assurance, vignette, chauffeur affecté</td></tr>
+            <tr><th>Stock de gaz</th><td>Stock</td><td>Format de bouteille, dépôt, seuil d'alerte, pleines / vides, consignes en circulation</td></tr>
+            <tr><th>Vêtements</th><td>Stock</td><td>Article, variantes taille et couleur, dépôt, seuil par variante, prix</td></tr>
+            <tr><th>Personnel</th><td>Actif</td><td>Identité, poste, contrat et sa fin, visite médicale, permis de conduire, pièce d'identité</td></tr>
+            <tr><th>Extincteur</th><td>Actif</td><td>Numéro, emplacement, type, date de recharge, date de contrôle</td></tr>
+            <tr><th>Contrat</th><td>Actif</td><td>Objet, partie contractante, document signé, date de début, date de fin, préavis</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="art" id="a6">
+      <h2><span class="n">§6</span><span>Module Actifs suivis</span></h2>
+
+      <h3><span class="n">6.1</span><span>La fiche</span></h3>
+      <p>Chaque fiche porte, en plus de ses champs propres : un <strong>statut</strong> configurable (en service, immobilisé, en réparation, cédé, archivé), une <strong>affectation</strong> facultative à un site et à une personne, ses <strong>documents et photos</strong>, son <strong>historique d'événements</strong>, et son <strong>journal de modifications</strong>.</p>
+
+      <h3><span class="n">6.2</span><span>Les événements</span></h3>
+      <p>Toute fiche peut recevoir des événements datés — entretien, réparation, incident, contrôle, affectation — avec un commentaire, un coût facultatif et des pièces jointes. C'est ce qui remplace le carnet d'entretien papier et permet, à terme, de savoir ce qu'un véhicule a réellement coûté.</p>
+
+      <h3><span class="n">6.3</span><span>Entretien périodique</span></h3>
+      <p>Un entretien peut être déclenché par une date <em>ou</em> par un compteur. Exemple : vidange tous les 5 000 km. L'alerte se déclenche à 90 % du seuil, à partir du kilométrage saisi lors du dernier événement. <span class="chip opt">à valider</span> — cette fonction dépend de la régularité de saisie des compteurs sur le terrain.</p>
+
+      <h3><span class="n">6.4</span><span>Exemple complet</span></h3>
+      <div class="box ex">
+        <span class="label">Parcours — le chef de parc, un mardi matin</span>
+        <p>Il ouvre l'application et voit un badge « 3 » sur la cloche. Le centre de notifications affiche :</p>
+        <div class="notif">
+          <span class="w">Échéance dans 30 jours</span>
+          <span class="t">Visite technique — CE 456 AB</span>
+          <span class="d">Toyota Hiace &middot; expire le 11/04/2026 &middot; chauffeur : Nkolo Jean</span>
+        </div>
+        <p>Il clique, arrive sur la fiche du véhicule, voit la photo, l'ancienne visite scannée et le contact du chauffeur. Il programme le passage, et le jour venu photographie le nouveau procès-verbal depuis son téléphone : la date se met à jour, l'alerte se referme, l'ancien document reste consultable dans l'historique.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="art" id="a7">
+      <h2><span class="n">§7</span><span>Module Stock</span></h2>
+
+      <h3><span class="n">7.1</span><span>Articles et variantes</span></h3>
+      <p>Un article porte un nom, une référence, une unité de mesure, un prix d'achat et un prix de vente facultatifs, et des champs personnalisés issus du socle. Il peut être décliné en <strong>variantes</strong> selon un ou deux attributs définis par l'organisation. Chaque variante possède son propre stock et son propre seuil.</p>
+
+      <h3><span class="n">7.2</span><span>Dépôts</span></h3>
+      <p>Les quantités sont toujours rattachées à un dépôt. Une organisation peut en déclarer autant qu'elle veut, et restreindre un opérateur à son dépôt. Le seuil d'alerte est réglable globalement <em>et</em> dépôt par dépôt.</p>
+
+      <h3><span class="n">7.3</span><span>Mouvements</span></h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:9rem">Type</th><th>Effet</th><th>Informations demandées</th></tr></thead>
+          <tbody>
+            <tr><th>Entrée</th><td>Augmente le stock d'un dépôt</td><td>Quantité, dépôt, motif (achat, retour), fournisseur, coût, pièce jointe</td></tr>
+            <tr><th>Sortie</th><td>Diminue le stock d'un dépôt</td><td>Quantité, dépôt, motif (vente, consommation, perte, casse), bénéficiaire</td></tr>
+            <tr><th>Transfert</th><td>Déplace entre deux dépôts</td><td>Quantité, dépôt d'origine, dépôt de destination</td></tr>
+            <tr><th>Ajustement</th><td>Aligne le stock sur un comptage réel</td><td>Quantité comptée, écart calculé automatiquement, justification obligatoire</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Un mouvement est <strong>immuable</strong> : on ne le modifie pas, on le corrige par un mouvement inverse. C'est ce qui rend le stock auditable — et ce qui rend la synchronisation hors-ligne fiable (§11.3).</p>
+
+      <h3><span class="n">7.4</span><span>Seuils et ruptures</span></h3>
+      <div class="box ex">
+        <span class="label">Exemple — dépôt de Douala</span>
+        <p>Article <strong>Bouteille 12,5 kg</strong>, seuil d'alerte 15. Stock au 3 avril : 48. Sortie de 12 le 5 avril, de 9 le 6, de 14 le 7. Le stock passe à 13 :</p>
+        <div class="notif">
+          <span class="w">Stock sous le seuil</span>
+          <span class="t">Bouteille 12,5 kg — Dépôt Douala</span>
+          <span class="d">13 restantes &middot; seuil fixé à 15 &middot; consommation moyenne 11 / jour</span>
+        </div>
+      </div>
+
+      <h3><span class="n">7.5</span><span>Lots et péremption</span></h3>
+      <p>Activable article par article. Quand l'option est active, chaque entrée déclare un numéro de lot et une date limite, les sorties se font au plus ancien, et le moteur alerte sur les lots proches de la péremption. Inutile pour les vêtements, indispensable dès que le client gérera de l'alimentaire ou du pharmaceutique. <span class="chip v1">v1</span></p>
+
+      <h3><span class="n">7.6</span><span>Articles consignés</span></h3>
+      <p>Cas typique du gaz : la bouteille circule, le contenu se vend. Quand un article est déclaré <strong>consigné</strong>, la plateforme suit trois compteurs — <em>pleines</em>, <em>vides</em>, <em>en circulation chez les clients</em> — ainsi que le montant de consigne encaissé. Une sortie de bouteille pleine incrémente la circulation ; un retour de vide la décrémente.</p>
+      <div class="box alert">
+        <span class="label">Attention au périmètre</span>
+        <p>Le suivi nominatif des consignes <em>par client</em> (« M. X détient 4 bouteilles ») suppose de gérer un fichier clients, ce qui déborde du cadre d'un outil de gestion interne. La v1 se limite aux <strong>compteurs globaux par dépôt</strong>. Voir Q7.</p>
+      </div>
+
+      <h3><span class="n">7.7</span><span>Exemple — vêtements</span></h3>
+      <div class="box ex">
+        <span class="label">Exemple — variantes</span>
+        <p>Article <strong>Chemise de service blanche</strong>, décliné par taille. Stock : <span class="mono">S&nbsp;12 &middot; M&nbsp;24 &middot; L&nbsp;3 &middot; XL&nbsp;18</span>, seuil 5 par taille. Seule la taille L déclenche une alerte. Le tableau de bord montre la rupture au niveau de la variante, pas de l'article — c'est toute la différence entre « il me reste 57 chemises » et « je ne peux plus équiper un agent en L ».</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="art" id="a8">
+      <h2><span class="n">§8</span><span>Échéances et alertes</span></h2>
+      <p>C'est le moteur qui porte la valeur du produit. Le reste n'est qu'un endroit où ranger l'information ; c'est ici qu'elle se transforme en action.</p>
+
+      <h3><span class="n">8.1</span><span>Sources et règles par défaut</span></h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:11rem">Source</th><th>Déclencheur</th><th>Rappels par défaut</th><th>Destinataires</th></tr></thead>
+          <tbody>
+            <tr><th>Échéance de document</th><td>Date de fin de validité</td><td>J-60, J-30, J-7, jour J, puis tous les 3 jours en retard</td><td>Gestionnaire du modèle</td></tr>
+            <tr><th>Seuil de stock</th><td>Quantité disponible sous le seuil</td><td>Au franchissement, puis rappel hebdomadaire tant que la situation dure</td><td>Responsable du dépôt</td></tr>
+            <tr><th>Péremption de lot</th><td>Date limite du lot</td><td>J-30, J-7, jour J</td><td>Responsable du dépôt</td></tr>
+            <tr><th>Entretien périodique</th><td>Date ou compteur atteint</td><td>À 90 % du seuil, puis au dépassement</td><td>Gestionnaire du modèle</td></tr>
+          </tbody>
+          <caption>Tous ces réglages sont modifiables par l'organisation, modèle par modèle et champ par champ.</caption>
+        </table>
+      </div>
+
+      <h3><span class="n">8.2</span><span>Traitement quotidien</span></h3>
+      <p>Un traitement automatique s'exécute chaque nuit, à une heure et dans un fuseau horaire propres à chaque organisation. Il balaie toutes les échéances, tous les niveaux de stock et tous les lots, puis produit les alertes du jour. Le traitement doit être <strong>rejouable sans effet de bord</strong> : une deuxième exécution le même jour ne doit pas dupliquer les alertes.</p>
+
+      <h3><span class="n">8.3</span><span>Cycle de vie d'une alerte</span></h3>
+      <ol class="body">
+        <li><strong>Émise</strong> — le moteur la crée, elle apparaît dans le centre de notifications et dans le badge.</li>
+        <li><strong>Acquittée</strong> — un utilisateur signale qu'il l'a vue et la prend en charge. Elle sort du badge, reste dans la liste.</li>
+        <li><strong>Reportée</strong> — l'utilisateur demande à être relancé dans <em>n</em> jours.</li>
+        <li><strong>Résolue</strong> — automatiquement, dès que la cause disparaît : la date est renouvelée, le stock repasse au-dessus du seuil.</li>
+      </ol>
+
+      <h3><span class="n">8.4</span><span>Ne pas noyer l'utilisateur</span></h3>
+      <ul class="body">
+        <li>Une alerte déjà émise n'est pas ré-émise le lendemain : seuls les paliers configurés déclenchent une relance.</li>
+        <li>Les alertes du jour destinées à une même personne sont <strong>regroupées en un seul envoi</strong>, jamais en dix messages.</li>
+        <li>Une escalade facultative prévient le supérieur si une alerte reste non acquittée au-delà d'un délai réglable.</li>
+      </ul>
+
+      <h3><span class="n">8.5</span><span>Canaux de la v1</span></h3>
+      <p><strong>Dans l'application</strong> : centre de notifications, badge de compteur, page « Alertes » filtrable (à venir, aujourd'hui, en retard, acquittées). <strong>Par e-mail</strong> : un récapitulatif quotidien, activable par utilisateur — c'est le filet de sécurité pour quelqu'un qui n'ouvre pas l'application tous les jours.</p>
+
+      <h3><span class="n">8.6</span><span>Préparation des canaux ultérieurs</span></h3>
+      <div class="box">
+        <span class="label">Exigence d'architecture</span>
+        <p>Bien que WhatsApp soit hors du périmètre v1, le moteur doit produire une <strong>intention de notification</strong> indépendante du canal — destinataire, gabarit, données, priorité — traitée ensuite par des porteurs interchangeables. Ajouter WhatsApp, SMS ou une notification push ne devra alors toucher qu'un porteur, jamais le moteur.</p>
+        <p>Deux points sont à documenter dès maintenant pour le jour où WhatsApp sera activé : l'appairage se fera par scan d'un QR depuis le numéro d'un gestionnaire, ce qui implique de <strong>détecter les déconnexions</strong> et de basculer sur l'e-mail, et de <strong>limiter le débit d'envoi</strong>, un numéro trop bavard s'exposant à un blocage par WhatsApp.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class="art" id="a9">
+      <h2><span class="n">§9</span><span>Recherche, vues et exports</span></h2>
+      <ul class="body">
+        <li><strong>Recherche globale</strong> — une seule barre qui cherche dans toutes les fiches et tous les articles de l'organisation, sur les champs déclarés indexables.</li>
+        <li><strong>Filtres</strong> — sur n'importe quel champ marqué comme filtrable, combinables.</li>
+        <li><strong>Vues enregistrées</strong> — un jeu de filtres, de colonnes et de tris qu'un utilisateur nomme et retrouve. Exemple : « Véhicules dont l'assurance expire dans les 60 jours ».</li>
+        <li><strong>Exports</strong> — la vue courante en tableur, une fiche complète avec ses documents en PDF.</li>
+        <li><strong>Import initial</strong> — reprise d'un fichier tableur existant, avec correspondance des colonnes et aperçu avant validation. Indispensable : aucun client ne re-saisira 200 véhicules à la main.</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section class="art" id="a10">
+      <h2><span class="n">§10</span><span>Tableaux de bord</span></h2>
+
+      <h3><span class="n">10.1</span><span>La vue globale</span></h3>
+      <p>Par défaut, la page d'accueil répond à une seule question : <em>qu'est-ce qui demande mon attention aujourd'hui ?</em> Elle présente, dans cet ordre, les échéances en retard, celles des 30 prochains jours, les articles sous seuil, les lots proches de la péremption, puis seulement ensuite les compteurs de synthèse. Tous modèles confondus.</p>
+
+      <h3><span class="n">10.2</span><span>Focaliser sur un seul modèle</span></h3>
+      <p>C'est l'ajout demandé, et il change beaucoup de choses à l'usage. Un bandeau de sélection en haut de la page permet de <strong>restreindre l'ensemble des indicateurs et des graphiques à un seul modèle</strong> : les véhicules, le gaz, les vêtements, le personnel. Tout ce qui est affiché en dessous — compteurs, graphiques, listes — se recalcule sur ce périmètre.</p>
+      <p>Ce n'est pas un simple filtre de liste : <strong>les indicateurs eux-mêmes changent</strong>, parce qu'un parc de véhicules et un dépôt de gaz ne se pilotent pas avec les mêmes chiffres.</p>
+
+      <div class="box ex">
+        <span class="label">Exemple — la même page, deux périmètres</span>
+        <p>Le chef de parc clique sur « Véhicules ». Voici ce qu'il obtient :</p>
+
+        <div class="dash">
+          <div class="dash-head">
+            <span class="title">Tableau de bord</span>
+            <span class="pick">Tout</span>
+            <span class="pick on">Véhicules</span>
+            <span class="pick">Stock de gaz</span>
+            <span class="pick">Vêtements</span>
+            <span class="pick">Personnel</span>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <span class="lab">Parc suivi</span>
+              <span class="val">42</span>
+              <span class="state">3 immobilisés</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Échéances en retard</span>
+              <span class="val">2</span>
+              <span class="state crit"><span class="dot"></span>Critique — à traiter</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Sous 30 jours</span>
+              <span class="val">7</span>
+              <span class="state warnst"><span class="dot"></span>À programmer</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Entretien &middot; 90 jours</span>
+              <span class="val">1 240 000</span>
+              <span class="state">14 interventions</span>
+            </div>
+          </div>
+          <div class="bars">
+            <span class="cap">Échéances véhicules à venir, par mois</span>
+            <div class="bar-row"><span>Avril</span><span class="bar-track"><span class="bar-fill" style="width:64%"></span></span><span class="n">7</span></div>
+            <div class="bar-row"><span>Mai</span><span class="bar-track"><span class="bar-fill" style="width:36%"></span></span><span class="n">4</span></div>
+            <div class="bar-row"><span>Juin</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="n">11</span></div>
+            <div class="bar-row"><span>Juillet</span><span class="bar-track"><span class="bar-fill" style="width:27%"></span></span><span class="n">3</span></div>
+          </div>
+        </div>
+
+        <p>Il voit immédiatement que <strong>juin sera chargé</strong> — onze échéances — et peut avancer certains renouvellements dès mai. C'est une information que la vue globale, qui mélange véhicules, gaz et vêtements, noyait complètement.</p>
+
+        <p>Son collègue du dépôt clique sur « Stock de gaz ». Mêmes emplacements à l'écran, indicateurs entièrement différents :</p>
+
+        <div class="dash">
+          <div class="dash-head">
+            <span class="title">Tableau de bord</span>
+            <span class="pick">Tout</span>
+            <span class="pick">Véhicules</span>
+            <span class="pick on">Stock de gaz</span>
+            <span class="pick">Vêtements</span>
+            <span class="pick">Personnel</span>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <span class="lab">Bouteilles pleines</span>
+              <span class="val">118</span>
+              <span class="state okst"><span class="dot"></span>Au-dessus du seuil</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Articles sous seuil</span>
+              <span class="val">2</span>
+              <span class="state crit"><span class="dot"></span>Critique — 6 kg et 50 kg</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Consignes en circulation</span>
+              <span class="val">64</span>
+              <span class="state">Chez les clients</span>
+            </div>
+            <div class="tile">
+              <span class="lab">Sorties &middot; 7 jours</span>
+              <span class="val">214</span>
+              <span class="state">31 par jour en moyenne</span>
+            </div>
+          </div>
+          <div class="bars">
+            <span class="cap">Stock disponible par format, dépôt de Douala</span>
+            <div class="bar-row"><span>6 kg</span><span class="bar-track"><span class="bar-fill" style="width:9%"></span></span><span class="n">4</span></div>
+            <div class="bar-row"><span>12,5 kg</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="n">48</span></div>
+            <div class="bar-row"><span>25 kg</span><span class="bar-track"><span class="bar-fill" style="width:44%"></span></span><span class="n">21</span></div>
+            <div class="bar-row"><span>50 kg</span><span class="bar-track"><span class="bar-fill" style="width:6%"></span></span><span class="n">3</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3><span class="n">10.3</span><span>Quels indicateurs selon la nature du modèle</span></h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:9rem">Nature</th><th>Compteurs</th><th>Graphiques</th></tr></thead>
+          <tbody>
+            <tr><th>Actif suivi</th><td>Nombre de fiches, répartition par statut, échéances en retard, échéances sous 30 jours, coût des événements sur la période</td><td>Échéances à venir par mois &middot; répartition par statut &middot; coût des interventions dans le temps</td></tr>
+            <tr><th>Article de stock</th><td>Quantité totale disponible, nombre d'articles sous seuil, valeur du stock, entrées et sorties de la période, lots proches de la péremption</td><td>Stock par article ou par variante &middot; mouvements dans le temps &middot; répartition par dépôt</td></tr>
+          </tbody>
+          <caption>Les compteurs monétaires ne s'affichent que pour les utilisateurs habilités à voir les montants (§4.2).</caption>
+        </table>
+      </div>
+
+      <h3><span class="n">10.4</span><span>Enregistrer et retrouver un tableau de bord</span></h3>
+      <ul class="body">
+        <li>Le périmètre choisi peut être <strong>enregistré et nommé</strong> — « Parc Douala », « Gaz — dépôt Bonabéri » — et retrouvé en un clic.</li>
+        <li>Chaque utilisateur peut <strong>épingler</strong> un tableau de bord comme sa page d'accueil : le magasinier ouvre directement son dépôt, le chef de parc ses véhicules.</li>
+        <li>Un tableau de bord peut être <strong>restreint à un dépôt ou à un site</strong> en plus du modèle, et à une période — 7 jours, 30 jours, 90 jours, année en cours.</li>
+      </ul>
+
+      <h3><span class="n">10.5</span><span>Deux règles de conception</span></h3>
+      <p><strong>Tout indicateur est cliquable</strong> et ouvre la liste filtrée qui le compose. Un chiffre qui ne mène nulle part n'a pas sa place : voir « 2 échéances en retard » sans pouvoir savoir lesquelles en un clic est une frustration, pas une information.</p>
+      <p><strong>L'état se lit sans la couleur.</strong> Chaque indicateur en anomalie porte un mot — « critique », « à programmer » — en plus de sa pastille colorée, pour rester lisible en noir et blanc, à l'impression, et par les utilisateurs daltoniens.</p>
+    </section>
+
+    <!-- 11 -->
+    <section class="art" id="a11">
+      <h2><span class="n">§11</span><span>Mode hors-ligne</span></h2>
+
+      <h3><span class="n">11.1</span><span>Principe</span></h3>
+      <p>L'application est une <strong>application web installable</strong> : elle s'ajoute à l'écran d'accueil du téléphone comme une application, fonctionne sans connexion, et se synchronise dès que le réseau revient. Elle ne passe par aucun magasin d'applications.</p>
+
+      <h3><span class="n">11.2</span><span>Périmètre du hors-ligne</span></h3>
+      <p><span class="chip opt">à valider</span> Le découpage ci-dessous est une <strong>proposition du prestataire</strong>, pas encore confirmée par le client (Q9). C'est le point qui pèse le plus lourd sur le chiffrage du lot 5 : chaque fonction rendue disponible hors connexion doit être capable de fonctionner sur des données incomplètes, puis de se réconcilier.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:9rem">Disponible</th><th>Fonction</th></tr></thead>
+          <tbody>
+            <tr><td><span class="chip v1">hors-ligne</span></td><th>Consulter les fiches et les stocks déjà synchronisés</th></tr>
+            <tr><td><span class="chip v1">hors-ligne</span></td><th>Créer et modifier une fiche</th></tr>
+            <tr><td><span class="chip v1">hors-ligne</span></td><th>Saisir des mouvements de stock</th></tr>
+            <tr><td><span class="chip v1">hors-ligne</span></td><th>Photographier un document et le mettre en file d'envoi</th></tr>
+            <tr><td><span class="chip v1">hors-ligne</span></td><th>Consulter les alertes déjà calculées</th></tr>
+            <tr><td><span class="chip v2">connexion requise</span></td><th>Configurer les modèles de fiche et les règles d'alerte</th></tr>
+            <tr><td><span class="chip v2">connexion requise</span></td><th>Gérer les utilisateurs et l'abonnement</th></tr>
+            <tr><td><span class="chip v2">connexion requise</span></td><th>Exports, imports et tableaux de bord consolidés</th></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3><span class="n">11.3</span><span>Synchronisation et conflits</span></h3>
+      <ul class="body">
+        <li>Les actions faites hors-ligne sont empilées dans une <strong>file d'opérations horodatées</strong> et rejouées dans l'ordre au retour du réseau.</li>
+        <li>Les <strong>mouvements de stock ne peuvent pas entrer en conflit</strong> : ils s'additionnent. Deux agents qui sortent chacun 5 bouteilles hors-ligne produisent bien une sortie de 10, jamais un écrasement.</li>
+        <li>Pour les <strong>fiches</strong>, la fusion se fait champ par champ : le dernier écrit l'emporte sur le champ concerné, et non sur la fiche entière. Tout conflit réel est inscrit dans un journal consultable par l'administrateur, avec les deux valeurs.</li>
+        <li>Les <strong>photos</strong> partent en arrière-plan, compressées, et reprennent après coupure sans repartir de zéro.</li>
+        <li>L'interface affiche en permanence l'état : <em>en ligne</em>, ou <em>hors-ligne — 4 opérations en attente</em>.</li>
+      </ul>
+
+      <h3><span class="n">11.4</span><span>Contraintes imposées dès le premier lot</span></h3>
+      <div class="box alert">
+        <span class="label">Exigence non négociable</span>
+        <p>Le hors-ligne ne peut pas être ajouté après coup. Trois décisions doivent être prises dès les fondations, même si la fonction n'est livrée qu'au lot 5 : les <strong>identifiants sont générés côté client</strong> (pas par la base de données), toute écriture passe par un <strong>journal d'opérations</strong> plutôt que par une mise à jour directe, et les <strong>mouvements de stock sont additifs et immuables</strong> (§7.3).</p>
+      </div>
+
+      <h3><span class="n">11.5</span><span>Limites</span></h3>
+      <p>Le volume conservé sur l'appareil est plafonné : les fiches du ou des dépôts affectés à l'utilisateur, et les documents des douze derniers mois. Au-delà, la consultation exige une connexion. La limite exacte sera fixée au cadrage technique en fonction des volumes réels (voir Q6).</p>
+    </section>
+
+    <!-- 12 -->
+    <section class="art" id="a12">
+      <h2><span class="n">§12</span><span>Abonnements</span></h2>
+
+      <h3><span class="n">12.1</span><span>Ce qui distingue les trois offres</span></h3>
+      <p><strong>Toutes les fonctionnalités sont ouvertes dans les trois offres</strong> : aucun module, aucun écran, aucune alerte n'est réservé à l'offre supérieure. Ce qui varie, ce sont trois volumes : la <strong>durée</strong>, le <strong>quota de stockage</strong> et le <strong>nombre d'utilisateurs</strong>.</p>
+      <p>Le raisonnement est simple : le stockage des photos et des scans est le seul coût qui augmente réellement avec l'usage d'un client. C'est donc lui, et non l'accès aux fonctions, qui doit porter la différence de prix.</p>
+
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:8rem">Offre</th><th class="num">Durée</th><th class="num">Prix</th><th class="num">Par mois</th><th class="num">Utilisateurs</th><th class="num">Stockage</th></tr></thead>
+          <tbody>
+            <tr><th>Mensuelle</th><td class="num">1 mois</td><td class="num">5 000</td><td class="num">5 000</td><td class="num">5</td><td class="num">2 Go</td></tr>
+            <tr><th>Semestrielle</th><td class="num">6 mois</td><td class="num">25 000</td><td class="num">4 167</td><td class="num">15</td><td class="num">10 Go</td></tr>
+            <tr><th>Annuelle</th><td class="num">12 mois</td><td class="num">45 000</td><td class="num">3 750</td><td class="num">illimité</td><td class="num">25 Go</td></tr>
+          </tbody>
+          <caption>Prix exprimés dans la devise de l'organisation. Ces montants et ces quotas sont des <strong>valeurs par défaut</strong> : l'éditeur les modifie depuis son espace, sans intervention technique (§13).</caption>
+        </table>
+      </div>
+
+      <p>L'offre annuelle est ramenée de 50 000 à <strong>45 000</strong> pour répondre au défaut relevé en version 0.1 : à 50 000, elle revenait exactement au même prix mensuel que l'offre semestrielle et n'avait donc aucun intérêt. L'échelle est maintenant cohérente — 5 000, puis −17 %, puis −25 % — et le quota de stockage renforce la progression.</p>
+
+      <div class="box ex">
+        <span class="label">Exemple — ce que représentent ces quotas</span>
+        <p>Une photo prise au téléphone et compressée à l'envoi pèse environ <strong>300 Ko</strong>. Un document scanné en PDF, environ <strong>500 Ko</strong>. Un véhicule complet — 5 photos, plus la carte grise, la visite technique, l'assurance et la vignette — occupe donc à peu près <strong>3,5 Mo</strong>.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Offre</th><th class="num">Stockage</th><th class="num">Véhicules complets</th><th class="num">ou photos seules</th></tr></thead>
+            <tbody>
+              <tr><th>Mensuelle</th><td class="num">2 Go</td><td class="num">≈ 570</td><td class="num">≈ 6 800</td></tr>
+              <tr><th>Semestrielle</th><td class="num">10 Go</td><td class="num">≈ 2 850</td><td class="num">≈ 34 000</td></tr>
+              <tr><th>Annuelle</th><td class="num">25 Go</td><td class="num">≈ 7 100</td><td class="num">≈ 85 000</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Autrement dit : une entreprise de transport avec 40 véhicules consomme environ <strong>140 Mo</strong>, soit 7 % du plus petit quota. Les quotas ne gênent personne dans un usage normal — ils protègent l'éditeur du client qui téléverserait 4 000 photos non compressées.</p>
+      </div>
+
+      <h3><span class="n">12.1 bis</span><span>Quand le quota est atteint</span></h3>
+      <ul class="body">
+        <li>À <strong>80 %</strong> puis à <strong>95 %</strong> du quota, l'administrateur de l'organisation reçoit une alerte dans l'application.</li>
+        <li>À <strong>100 %</strong>, seul l'<strong>envoi de nouveaux fichiers</strong> est bloqué. La saisie des fiches, les mouvements de stock, les alertes et les exports continuent de fonctionner. On ne bloque jamais la gestion d'une entreprise pour une question de photos.</li>
+        <li>L'administrateur peut alors libérer de la place — supprimer d'anciennes photos, purger des documents archivés — ou passer à l'offre supérieure, avec effet immédiat et calcul au prorata.</li>
+        <li>Un écran indique en permanence l'occupation : <em>1,4 Go sur 2 Go &middot; 1 208 fichiers</em>, avec le détail par modèle pour voir ce qui pèse.</li>
+        <li><span class="chip opt">à valider</span> Faut-il proposer l'achat de stockage supplémentaire sans changer d'offre — par exemple 5 Go de plus pour un montant fixe ? Voir Q11.</li>
+      </ul>
+
+      <h3><span class="n">12.2</span><span>Devise</span></h3>
+      <p>À l'inscription, la devise de l'organisation est <strong>proposée d'après le pays déclaré</strong>. Elle détermine l'affichage de tous les montants de la plateforme — prix d'abonnement, valeurs d'achat, valorisation du stock. L'éditeur peut ajouter des devises, en modifier le format d'affichage, et fixer un prix différent par devise depuis son espace (§13).</p>
+
+      <h3><span class="n">12.3</span><span>Cycle de vie de l'abonnement</span></h3>
+      <p>Les durées ci-dessous sont arbitrées : <strong>14 jours d'essai</strong>, <strong>30 jours de lecture seule</strong> après expiration, <strong>12 mois de conservation</strong> avant archivage définitif. Elles restent modifiables par l'éditeur depuis son espace.</p>
+
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:8rem">État</th><th style="width:7rem">Durée</th><th>Ce que le client peut faire</th></tr></thead>
+          <tbody>
+            <tr><th>Essai</th><td class="num">14 jours</td><td>Tout, sans restriction. Quotas de l'offre mensuelle. Rappels à J-7, J-3 et J-1 avant la fin.</td></tr>
+            <tr><th>Actif</th><td class="num">1, 6 ou 12 mois</td><td>Tout. La date d'expiration est visible en permanence en haut de l'écran.</td></tr>
+            <tr><th>Avant expiration</th><td class="num">J-15, J-7, J-1</td><td>Tout. Trois rappels adressés à l'administrateur de l'organisation.</td></tr>
+            <tr><th>Lecture seule</th><td class="num">30 jours</td><td>Consulter, filtrer, exporter, imprimer. <strong>Plus aucune saisie.</strong> Les alertes continuent d'être calculées et affichées — c'est précisément le moment où le client mesure ce qu'il perd.</td></tr>
+            <tr><th>Suspendu</th><td class="num">12 mois</td><td>Plus d'accès à l'application. Les données sont intégralement conservées et un export complet reste disponible sur demande.</td></tr>
+            <tr><th>Archivé</th><td class="num">après 12 mois</td><td>Suppression définitive, précédée de deux avertissements par e-mail à un mois puis à une semaine.</td></tr>
+          </tbody>
+          <caption>À aucun moment un défaut de paiement n'entraîne une perte de données. Un règlement rouvre l'écriture immédiatement, dans l'état exact où le client l'avait laissée.</caption>
+        </table>
+      </div>
+
+      <div class="box ex">
+        <span class="label">Exemple — le calendrier complet d'Awa</span>
+        <ol class="steps">
+          <li><span class="when">14 avril 2026</span><span>Inscription. Essai gratuit ouvert jusqu'au <strong>28 avril</strong>.</span></li>
+          <li><span class="when">21, 25, 27 avril</span><span>Rappels de fin d'essai.</span></li>
+          <li><span class="when">26 avril</span><span>Elle règle 25 000 pour six mois. L'abonnement court jusqu'au <strong>26 octobre</strong> — les deux jours d'essai restants ne sont pas perdus, la période part de la fin de l'essai.</span></li>
+          <li><span class="when">11, 19, 25 octobre</span><span>Rappels avant expiration à J-15, J-7 et J-1.</span></li>
+          <li><span class="when">27 octobre</span><span>Sans règlement, l'espace passe en lecture seule. Awa voit toujours ses 42 véhicules, ses alertes et peut tout exporter, mais ne peut plus rien saisir.</span></li>
+          <li><span class="when">26 novembre</span><span>L'espace est suspendu. Les données restent conservées jusqu'au <strong>26 novembre 2027</strong>.</span></li>
+          <li><span class="when">à tout moment</span><span>Un règlement rouvre l'écriture le jour même, sans perte d'une seule fiche.</span></li>
+        </ol>
+      </div>
+
+      <h3><span class="n">12.4</span><span>Encaissement et facturation</span></h3>
+      <p>En version 1, <strong>le paiement est reçu hors de la plateforme puis enregistré par l'éditeur</strong> — Mobile Money, virement ou espèces. C'est la décision arbitrée (Q2). Aucun opérateur de paiement n'est intégré à ce stade, ce qui supprime un délai de mise en place, des frais par transaction et une dépendance technique dès la première version.</p>
+
+      <div class="box ex">
+        <span class="label">Exemple — le circuit d'un règlement</span>
+        <ol class="steps">
+          <li><span class="when">Côté client</span><span>Awa choisit l'offre semestrielle. L'application affiche les <strong>instructions de paiement</strong> saisies par l'éditeur : numéro Mobile Money, coordonnées bancaires, ou simple invitation à prendre contact.</span></li>
+          <li><span class="when">Côté client</span><span>Elle paie, puis clique sur <strong>« J'ai payé »</strong> en indiquant la référence de la transaction et, si elle le souhaite, une capture du reçu.</span></li>
+          <li><span class="when">Côté éditeur</span><span>Une demande de validation apparaît dans son espace, avec le nom de l'organisation, l'offre visée, la référence et la date.</span></li>
+          <li><span class="when">Côté éditeur</span><span>Il vérifie la réception réelle des fonds, puis <strong>enregistre le paiement</strong> : montant, devise, moyen, référence, date. L'abonnement est prolongé automatiquement à partir de la date d'expiration en cours — <em>jamais</em> à partir de la date de validation, pour qu'aucun jour ne soit perdu.</span></li>
+          <li><span class="when">Automatique</span><span>La <strong>facture PDF</strong> est générée, numérotée en séquence, à l'en-tête de l'éditeur et au nom de l'organisation. Awa est notifiée et la retrouve dans son historique de paiements.</span></li>
+        </ol>
+      </div>
+
+      <ul class="body">
+        <li>L'éditeur peut aussi enregistrer un paiement <strong>sans demande préalable</strong>, pour un client qui a réglé par un autre canal.</li>
+        <li>Toute prolongation accordée à la main — geste commercial, litige — exige un <strong>motif obligatoire</strong>, inscrit au journal.</li>
+        <li>Le circuit repose sur un <strong>enregistrement de paiement unique</strong>, alimenté à la main en version 1 et, plus tard, par un opérateur de paiement mobile. Le passage à l'automatisation n'obligera pas à refaire la facturation ni le cycle d'abonnement.</li>
+      </ul>
+    </section>
+
+    <!-- 13 -->
+    <section class="art" id="a13">
+      <h2><span class="n">§13</span><span>Espace éditeur</span></h2>
+      <p>Un espace distinct, réservé à l'exploitant du service, permettant de piloter l'activité <strong>sans intervention technique</strong> :</p>
+      <ul class="body">
+        <li>Créer et modifier les offres : nom, durée, <strong>prix</strong>, <strong>quota de stockage</strong>, <strong>nombre d'utilisateurs</strong>, devise, mise en avant, activation ou retrait. Aucun de ces réglages ne doit demander une intervention de développement.</li>
+        <li>Gérer les devises acceptées, leur format d'affichage, et fixer un prix distinct par devise.</li>
+        <li>Régler la durée de l'essai gratuit, les paliers de rappel avant expiration, la durée de lecture seule et la durée de conservation.</li>
+        <li>Saisir les <strong>instructions de paiement</strong> affichées aux clients : numéro Mobile Money, coordonnées bancaires, texte libre.</li>
+        <li>Traiter la <strong>file des règlements déclarés</strong> par les clients : vérifier, valider ou rejeter avec motif.</li>
+        <li>Consulter la liste des organisations : date d'inscription, offre en cours, date d'expiration, nombre d'utilisateurs, <strong>stockage consommé rapporté au quota</strong>.</li>
+        <li>Repérer d'un coup d'œil les organisations proches de leur quota — ce sont les candidates naturelles à l'offre supérieure.</li>
+        <li>Prolonger, suspendre ou réactiver un abonnement à la main, avec motif obligatoire inscrit au journal.</li>
+        <li>Enregistrer un paiement reçu hors plateforme et émettre la facture correspondante.</li>
+        <li>Publier une annonce affichée dans l'application à toutes les organisations ou à certaines d'entre elles.</li>
+        <li>Suivre l'activité du service : inscriptions, renouvellements, résiliations, revenu par période.</li>
+        <li>Enrichir la bibliothèque de modèles prêts à l'emploi mise à disposition des nouveaux clients.</li>
+      </ul>
+    </section>
+
+    <!-- 14 -->
+    <section class="art" id="a14">
+      <h2><span class="n">§14</span><span>Exigences techniques</span></h2>
+
+      <h3><span class="n">14.1</span><span>Sécurité et cloisonnement</span></h3>
+      <ul class="body">
+        <li>Cloisonnement des données par organisation <strong>vérifié à chaque requête</strong>, et non seulement dans l'interface. Cette vérification fait l'objet de tests automatisés dédiés.</li>
+        <li>Authentification par <strong>compte Google</strong> en chemin principal (§4.4) : aucun mot de passe n'est créé ni stocké pour ces comptes, ce qui supprime d'emblée la principale cause de compromission.</li>
+        <li>Pour les comptes par e-mail, mots de passe stockés sous forme d'empreinte ; double authentification proposée en option aux administrateurs.</li>
+        <li>Documents et photos <strong>non accessibles publiquement</strong> : servis par liens signés à durée de vie courte.</li>
+        <li>Échanges chiffrés de bout en bout (HTTPS obligatoire, sans exception).</li>
+        <li>Journalisation des tentatives de connexion et limitation du nombre d'essais.</li>
+      </ul>
+
+      <h3><span class="n">14.2</span><span>Journal d'audit</span></h3>
+      <p>Toute création, modification, suppression et export est inscrit avec l'auteur, la date, l'ancienne et la nouvelle valeur. Le journal est consultable par l'administrateur de l'organisation, filtrable, exportable, et <strong>non modifiable</strong>.</p>
+
+      <h3><span class="n">14.3</span><span>Performance</span></h3>
+      <ul class="body">
+        <li>Affichage d'une liste de 10 000 fiches, paginée et filtrée, en moins de 2 secondes sur une connexion mobile ordinaire.</li>
+        <li>Photos compressées <strong>sur l'appareil avant envoi</strong> — contrainte forte sur des forfaits data limités.</li>
+        <li>Application utilisable sur un téléphone d'entrée de gamme ; le poids des pages est un critère de recette.</li>
+      </ul>
+
+      <h3><span class="n">14.4</span><span>Disponibilité et sauvegardes</span></h3>
+      <p>Disponibilité visée : 99 % sur le mois, hors maintenances annoncées. Sauvegarde quotidienne automatique, conservée 30 jours, avec <strong>test de restauration documenté</strong> — une sauvegarde jamais restaurée n'est pas une sauvegarde.</p>
+      <p><strong>Hébergement</strong> — aucune contrainte de localisation ni d'hébergeur imposé (Q8 arbitrée). Le prestataire choisit sur des critères de latence depuis la zone desservie, de coût du stockage et de qualité des sauvegardes. Le choix retenu sera consigné, avec la localisation effective des données, pour pouvoir répondre à un client qui poserait la question.</p>
+
+      <h3><span class="n">14.5</span><span>Compatibilité</span></h3>
+      <p>Chrome, Edge, Firefox et Safari dans leurs deux dernières versions, sur ordinateur et sur mobile. Interface pensée pour le mobile en premier sur les écrans de saisie terrain, pour l'ordinateur sur les écrans de configuration et d'analyse.</p>
+
+      <h3><span class="n">14.6</span><span>Données personnelles</span></h3>
+      <p>Si le modèle Personnel est retenu (Q7), l'application traitera des données personnelles d'employés : identité, pièce d'identité, visite médicale. Cela impose une durée de conservation déclarée, une restriction d'accès par rôle, une traçabilité des consultations et une capacité d'export et d'effacement à la demande de la personne concernée.</p>
+
+      <h3><span class="n">14.7</span><span>Langue</span></h3>
+      <p>Français en v1. Les libellés sont externalisés dès le départ pour qu'une seconde langue ne demande qu'une traduction, et non une reprise du code.</p>
+    </section>
+
+    <!-- 15 -->
+    <section class="art" id="a15">
+      <h2><span class="n">§15</span><span>Architecture proposée</span></h2>
+      <p>Cette section est indicative et relève du prestataire ; elle est fournie pour que le client mesure les implications de ses choix.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:11rem">Brique</th><th>Choix proposé</th><th>Raison</th></tr></thead>
+          <tbody>
+            <tr><th>Application</th><td>Application web unique, rendue côté serveur, installable comme application mobile</td><td>Une seule base de code pour l'ordinateur et le terrain, sans magasin d'applications</td></tr>
+            <tr><th>Base de données</th><td>Base relationnelle, cloisonnement par organisation appliqué au niveau de la base</td><td>Le cloisonnement ne doit pas dépendre de la vigilance du développeur</td></tr>
+            <tr><th>Champs personnalisés</th><td>Structure hybride : colonnes fixes pour le socle, stockage souple et indexé pour les champs définis par le client</td><td>Permet la configuration libre sans sacrifier la vitesse de recherche</td></tr>
+            <tr><th>Fichiers</th><td>Stockage objet séparé de la base, accès par liens signés</td><td>Photos et scans représenteront l'essentiel du volume</td></tr>
+            <tr><th>Hors-ligne</th><td>Base locale sur l'appareil + file d'opérations rejouable</td><td>Voir §11.3 et §11.4</td></tr>
+            <tr><th>Traitement des alertes</th><td>Tâche planifiée quotidienne par organisation, rejouable sans effet de bord</td><td>Voir §8.2</td></tr>
+            <tr><th>Notifications</th><td>Moteur d'intentions + porteurs interchangeables</td><td>Condition pour brancher WhatsApp plus tard sans réécriture (§8.6)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 16 -->
+    <section class="art" id="a16">
+      <h2><span class="n">§16</span><span>Lots de livraison</span></h2>
+      <p>Chaque lot est livré en état de fonctionnement et de recette. Les durées sont <strong>indicatives</strong> et seront confirmées après chiffrage détaillé.</p>
+      <div class="lots">
+        <div class="lot">
+          <span class="id">Lot 0</span>
+          <span class="body-l">
+            <span class="name">Fondations</span>
+            <span class="desc">Inscription et connexion par compte Google et par e-mail, organisations cloisonnées, rôles et droits, stockage des fichiers, journal d'audit. Les trois contraintes du §11.4 sont posées ici.</span>
+            <span class="est">3 à 4 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 1</span>
+          <span class="body-l">
+            <span class="name">Moteur de fiches et actifs suivis</span>
+            <span class="desc">Éditeur de modèles, tous les types de champs, fiches, documents et photos, événements, modèle Véhicule prêt à l'emploi, moteur d'échéances et centre de notifications. <strong>Premier lot démontrable à un client.</strong></span>
+            <span class="est">6 à 8 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 2</span>
+          <span class="body-l">
+            <span class="name">Stock</span>
+            <span class="desc">Articles, variantes, dépôts, mouvements, seuils, inventaires, lots et péremption, articles consignés. Modèles Gaz et Vêtements prêts à l'emploi.</span>
+            <span class="est">4 à 6 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 3</span>
+          <span class="body-l">
+            <span class="name">Exploitation</span>
+            <span class="desc">Recherche globale, filtres, vues enregistrées, import initial depuis tableur, exports, tableau de bord global puis <strong>focalisation par modèle</strong> (§10.2), tableaux de bord enregistrés et épinglés.</span>
+            <span class="est">4 à 5 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 4</span>
+          <span class="body-l">
+            <span class="name">Abonnements et espace éditeur</span>
+            <span class="desc">Offres, prix et <strong>quotas de stockage</strong>, devises, cycle de vie de l'abonnement, lecture seule, file des règlements déclarés, encaissement manuel, factures, pilotage du service.</span>
+            <span class="est">4 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 5</span>
+          <span class="body-l">
+            <span class="name">Mode hors-ligne</span>
+            <span class="desc">Installation sur l'appareil, base locale, file d'opérations, synchronisation, résolution des conflits, envoi différé des photos.</span>
+            <span class="est">4 à 5 semaines</span>
+          </span>
+        </div>
+        <div class="lot">
+          <span class="id">Lot 6</span>
+          <span class="body-l">
+            <span class="name">Notifications WhatsApp <span class="chip v2">ultérieur</span></span>
+            <span class="desc">Hors du présent périmètre. Appairage par QR, envoi des alertes, détection des déconnexions, limitation de débit. À chiffrer séparément.</span>
+            <span class="est">à définir</span>
+          </span>
+        </div>
+      </div>
+
+      <p>Total indicatif pour les lots 0 à 5 : <strong>25 à 32 semaines</strong>, soit environ six à huit mois. Le lot 1 étant démontrable seul, une première présentation client est possible au bout de <strong>neuf à douze semaines</strong>.</p>
+
+      <h3><span class="n">16.1</span><span>Recette et tests</span></h3>
+      <p>Les tests ont lieu <strong>pendant et après le développement</strong>, ce sont deux exercices différents et les deux sont dus.</p>
+      <ul class="body">
+        <li><strong>Pendant</strong> — des tests automatisés sont écrits en même temps que le code et rejoués à chaque modification. Trois familles sont prioritaires et doivent exister dès le lot 0 : le <strong>cloisonnement entre organisations</strong>, la <strong>rejouabilité du moteur d'alertes</strong> (§8.2), et la <strong>synchronisation hors-ligne</strong> — conflits sur les fiches, additivité des mouvements (§11.3).</li>
+        <li><strong>Après chaque lot</strong> — le prestataire livre un environnement de démonstration alimenté en données réalistes et un <strong>scénario de recette écrit</strong>, que le client déroule point par point. Le lot n'est réputé livré qu'une fois ce scénario validé.</li>
+        <li><strong>Anomalies</strong> — une anomalie bloquante détectée en recette est corrigée dans le lot en cours. Une évolution demandée en cours de lot est notée, reportée et re-chiffrée : c'est la seule façon de tenir un calendrier.</li>
+        <li><strong>Recette finale</strong> — après le dernier lot, une période de vérification en conditions réelles, dont la durée reste à fixer avec le client.</li>
+      </ul>
+      <div class="box alert">
+        <span class="label">Reste à préciser</span>
+        <p>Le principe des tests est arbitré, mais trois éléments manquent encore : <strong>qui</strong> valide chaque lot côté client, sous <strong>quel délai</strong> après la mise à disposition, et si une <strong>entreprise pilote</strong> peut tester le lot 1 en conditions réelles. Voir Q10.</p>
+      </div>
+    </section>
+
+    <!-- 17 -->
+    <section class="art" id="a17">
+      <h2><span class="n">§17</span><span>Décisions et points ouverts</span></h2>
+
+      <h3><span class="n">17.1</span><span>Ce qui est arbitré</span></h3>
+      <p>Six points ouverts en version 0.1 ont reçu une réponse, et deux fonctions ont été ajoutées au périmètre. Le document a été mis à jour en conséquence.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th style="width:3.5rem">Réf.</th><th style="width:11rem">Sujet</th><th>Décision retenue</th><th style="width:6rem">Écrit en</th></tr></thead>
+          <tbody>
+            <tr><th class="mono">Q2</th><td>Encaissement</td><td>Paiement reçu hors plateforme et <strong>enregistré manuellement par l'éditeur</strong>, qui émet la facture. L'intégration d'un opérateur de paiement mobile est reportée, sans refonte à prévoir.</td><td class="mono">§12.4</td></tr>
+            <tr><th class="mono">Q3</th><td>Cycle d'abonnement</td><td><strong>14 jours</strong> d'essai, <strong>30 jours</strong> de lecture seule après expiration, <strong>12 mois</strong> de conservation avant archivage définitif.</td><td class="mono">§12.3</td></tr>
+            <tr><th class="mono">Q4</th><td>Tarif annuel</td><td>Ramené de 50 000 à <strong>45 000</strong>. Tous les prix restent modifiables par l'éditeur depuis son espace.</td><td class="mono">§12.1</td></tr>
+            <tr><th class="mono">Q5</th><td>Limites par organisation</td><td><strong>Quota de stockage et nombre d'utilisateurs différenciés par offre.</strong> Les fonctionnalités, elles, restent identiques dans les trois offres.</td><td class="mono">§12.1</td></tr>
+            <tr><th class="mono">Q8</th><td>Hébergement</td><td><strong>Aucune contrainte</strong> de localisation ni d'hébergeur imposé. Choix laissé au prestataire, mais consigné.</td><td class="mono">§14.4</td></tr>
+            <tr><th class="mono">Q10</th><td>Tests</td><td>Tests automatisés écrits <strong>pendant</strong> le développement, recette fonctionnelle <strong>après chaque lot</strong>. <em>Partiellement arbitré</em> — voir 17.2.</td><td class="mono">§16.1</td></tr>
+            <tr><th class="mono">A1</th><td>Ajout — tableaux de bord</td><td>Les indicateurs et les graphiques peuvent être <strong>focalisés sur un seul modèle</strong>, et le périmètre choisi enregistré et épinglé.</td><td class="mono">§10.2</td></tr>
+            <tr><th class="mono">A2</th><td>Ajout — connexion</td><td>Inscription et connexion <strong>par compte Google en un clic</strong>, avec repli par e-mail et mot de passe.</td><td class="mono">§4.4</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3><span class="n">17.2</span><span>Ce qui reste ouvert</span></h3>
+      <p>Six points appellent encore une réponse avant validation définitive et chiffrage ferme. Aucun n'empêche de démarrer les lots 0 et 1.</p>
+      <ol class="questions">
+        <li data-ref="Q1"><span><span class="q">Nom définitif du produit.</span><span class="prop">« Registre » est un nom de travail employé dans ce document. À confirmer ou à remplacer — c'est un point à régler avant les premières maquettes, pas avant le développement.</span></span></li>
+        <li data-ref="Q6"><span><span class="q">Volumes attendus à un an.</span><span class="prop">Combien de fiches, d'articles et de mouvements par organisation ? Cette réponse dimensionne la recherche, les tableaux de bord et le cache hors-ligne (§11.5). Un ordre de grandeur suffit.</span></span></li>
+        <li data-ref="Q7"><span><span class="q">Deux extensions à arbitrer.</span><span class="prop">Le modèle Personnel est-il dans la v1 ? Il entraîne des obligations sur les données personnelles (§14.6). Le suivi nominatif des consignes de gaz par client est-il attendu, ou les compteurs globaux suffisent-ils (§7.6) ?</span></span></li>
+        <li data-ref="Q9"><span><span class="q">Profondeur du mode hors-ligne.</span><span class="prop"><strong>Sans réponse à ce jour.</strong> Le périmètre proposé au §11.2 — consulter et saisir hors-ligne, configurer et exporter en ligne — convient-il, ou faut-il l'élargir ? C'est le point qui pèse le plus lourd sur le chiffrage du lot 5.</span></span></li>
+        <li data-ref="Q10"><span><span class="q">Qui valide, et sous quel délai.</span><span class="prop">Le principe des tests est arrêté (§16.1), mais il manque le nom du valideur côté client, le délai de recette après mise à disposition d'un lot, et la disponibilité d'une entreprise pilote pour le lot 1.</span></span></li>
+        <li data-ref="Q11"><span><span class="q">Stockage supplémentaire à la demande.</span><span class="prop">Faut-il permettre à un client d'acheter du stockage en plus sans changer d'offre — par exemple 5 Go pour un montant fixe (§12.1 bis) ? Et les quotas chiffrés proposés (5 / 15 / illimité utilisateurs, 2 / 10 / 25 Go) sont-ils confirmés ?</span></span></li>
+      </ol>
+    </section>
+
+    <!-- 18 -->
+    <section class="art" id="a18">
+      <h2><span class="n">§18</span><span>Le produit en fonctionnement</span></h2>
+      <p>Cette annexe ne contient aucune exigence nouvelle. Elle suit une même entreprise fictive sur six mois pour montrer comment les pièces décrites plus haut s'emboîtent réellement. C'est le meilleur moyen de vérifier, en la lisant, que le produit décrit est bien celui que l'on veut.</p>
+
+      <div class="persona">
+        <span class="who">Transports Awa &amp; Fils — Douala</span>
+        <span class="ctx">42 véhicules sur trois lignes, un dépôt de gaz à Bonabéri, 6 employés. Aujourd'hui : trois classeurs, un cahier de dépôt et un fichier Excel qu'une seule personne sait lire.</span>
+      </div>
+
+      <h3><span class="n">18.1</span><span>Jour 1 — de l'inscription au parc importé, en douze minutes</span></h3>
+      <ol class="steps">
+        <li><span class="when">Mardi 14 avril &middot; 14 h 02</span><span>Awa clique sur <strong>« Continuer avec Google »</strong>. Elle saisit le nom de son entreprise, son pays — le Cameroun, ce qui fixe la devise en FCFA — et son secteur. Son essai de 14 jours démarre. <em>(§4.4, §12.2)</em></span></li>
+        <li><span class="when">14 h 03</span><span>L'application lui propose les modèles adaptés à son secteur. Elle active <strong>Véhicule</strong> : les onze champs sont déjà là, immatriculation, photos, carte grise, visite technique, assurance, chauffeur. <em>(§5.6)</em></span></li>
+        <li><span class="when">14 h 06</span><span>Elle ajoute un champ qui n'existait pas : <strong>« Ligne desservie »</strong>, une liste de choix — Douala–Yaoundé, Douala–Bafoussam, Urbain. Deux clics, aucun développement, aucune demande à faire à personne. <em>(§5.2, §5.3)</em></span></li>
+        <li><span class="when">14 h 10</span><span>Elle dépose son fichier Excel. L'application détecte les colonnes et lui demande de confirmer : « Immat » va vers Immatriculation, « VT » vers Visite technique. Trois lignes ont des dates illisibles, elle les corrige à l'écran avant de valider. <em>(§9)</em></span></li>
+        <li><span class="when">14 h 14</span><span><strong>42 fiches existent.</strong> Le tableau de bord affiche déjà ce que le fichier Excel ne lui avait jamais dit : <strong>2 échéances en retard</strong> et 7 dans les trente jours. <em>(§10.1)</em></span></li>
+        <li><span class="when">Les jours suivants</span><span>Elle photographie les cartes grises au fil de ses passages au garage, depuis son téléphone. Le parc complet occupera environ <strong>140 Mo</strong>, soit 7 % du quota de l'offre mensuelle. <em>(§12.1)</em></span></li>
+      </ol>
+
+      <h3><span class="n">18.2</span><span>Jour 12 — une échéance est repérée avant qu'il ne soit trop tard</span></h3>
+      <ol class="steps">
+        <li><span class="when">2 h du matin</span><span>Le traitement quotidien balaie les 42 véhicules, leurs 168 échéances et le stock du dépôt. Il repère que la visite technique de <strong>CE 456 AB</strong> arrive à trente jours de son terme. Une alerte est créée. <em>(§8.2)</em></span></li>
+        <li><span class="when">7 h 40</span><span>Awa ouvre l'application : un badge « 3 » sur la cloche, et <strong>un seul message groupé</strong>, pas trois notifications séparées. <em>(§8.4)</em></span></li>
+        <li><span class="when">7 h 41</span><span>Elle clique et arrive sur la fiche : la photo du véhicule, l'ancienne visite scannée, le nom et le téléphone du chauffeur. Elle appelle le garage, puis <strong>acquitte l'alerte</strong> — elle sort du badge, sans disparaître de la liste. <em>(§8.3)</em></span></li>
+        <li><span class="when">Neuf jours plus tard</span><span>Le procès-verbal est prêt. Elle le photographie et saisit la nouvelle date. <strong>L'alerte se referme d'elle-même</strong>, l'ancien document reste consultable dans l'historique de la fiche, et le prochain cycle de rappels démarre pour l'an prochain. <em>(§5.4)</em></span></li>
+        <li><span class="when">Ce qui se serait passé sinon</span><span>Sans acquittement, l'alerte serait revenue à J-7, le jour même, puis tous les trois jours en retard — et au bout de cinq jours sans réaction, son associé aurait été prévenu à son tour. <em>(§8.1, §8.4)</em></span></li>
+      </ol>
+
+      <h3><span class="n">18.3</span><span>Jour 40 — une journée entière au dépôt, sans réseau</span></h3>
+      <div class="persona">
+        <span class="who">Marc Etoga — magasinier, dépôt de Bonabéri</span>
+        <span class="ctx">Pas de wifi au dépôt, et son forfait data est épuisé depuis le 20 du mois.</span>
+      </div>
+      <ol class="steps">
+        <li><span class="when">7 h 50</span><span>Il ouvre l'application depuis l'icône installée sur son écran d'accueil. Bandeau : <strong>« Hors-ligne »</strong>. Les articles de son dépôt sont là, à jour de la veille. <em>(§11.1, §11.5)</em></span></li>
+        <li><span class="when">8 h 15</span><span>Sortie de <strong>12 bouteilles de 12,5 kg</strong>. Trois appuis. L'opération part en file d'attente. <em>(§7.3, §11.3)</em></span></li>
+        <li><span class="when">11 h 20</span><span>Il photographie un bordereau de livraison. La photo rejoint la file, compressée. <em>(§11.3)</em></span></li>
+        <li><span class="when">16 h 30</span><span>Bilan de la journée : 18 mouvements, dont deux retours de bouteilles vides et un transfert vers Douala. Le bandeau indique <strong>« Hors-ligne — 18 opérations en attente »</strong>. <em>(§7.6, §11.3)</em></span></li>
+        <li><span class="when">17 h 05</span><span>Il repasse dans une zone couverte. Les 18 mouvements sont rejoués dans l'ordre, la photo part en arrière-plan, le bandeau redevient <strong>« En ligne »</strong>.</span></li>
+        <li><span class="when">Le point qui compte</span><span>Pendant que Marc était hors réseau, son collègue Paul a sorti 9 bouteilles du même article depuis le bureau. <strong>Aucun conflit, aucune donnée écrasée</strong> : les mouvements s'additionnent. Le stock final est exact — 48 − 12 − 9 = 27. C'est exactement pour cela que les mouvements sont additifs et immuables (§7.3, §11.3, §11.4).</span></li>
+        <li><span class="when">17 h 06</span><span>La synchronisation fait passer le stock de 50 kg à <strong>3</strong>, sous son seuil de 5. L'alerte tombe <strong>immédiatement</strong>, sans attendre le traitement nocturne : les alertes de seuil se déclenchent au franchissement. <em>(§8.1)</em></span></li>
+        <li><span class="when">Le soir</span><span>Le chef de dépôt ouvre son tableau de bord épinglé <strong>« Gaz — Bonabéri »</strong> : bouteilles pleines, articles sous seuil, consignes en circulation, sorties de la semaine. Aucun chiffre de véhicule ne vient brouiller la lecture. <em>(§10.2, §10.4)</em></span></li>
+      </ol>
+
+      <h3><span class="n">18.4</span><span>Mois 6 — le renouvellement</span></h3>
+      <ol class="steps">
+        <li><span class="when">11 octobre</span><span>Premier rappel d'expiration, à J-15. <em>(§12.3)</em></span></li>
+        <li><span class="when">14 octobre</span><span>Alerte de quota : <strong>1,6 Go sur 2 Go</strong>. L'écran d'occupation lui montre que les photos de véhicules pèsent à elles seules 1,2 Go. <em>(§12.1 bis)</em></span></li>
+        <li><span class="when">19 octobre</span><span>Rappel à J-7. Awa décide de passer à l'<strong>offre annuelle</strong> : 45 000, 25 Go, utilisateurs illimités — elle vient d'embaucher deux magasiniers. <em>(§12.1)</em></span></li>
+        <li><span class="when">20 octobre</span><span>Elle règle par Mobile Money, puis clique sur <strong>« J'ai payé »</strong> en indiquant la référence de la transaction. <em>(§12.4)</em></span></li>
+        <li><span class="when">20 octobre</span><span>L'éditeur voit la demande dans sa file, vérifie la réception des fonds, valide. L'abonnement court jusqu'au <strong>26 octobre 2027</strong> — la prolongation part de la date d'expiration en cours, pas du jour du paiement : <strong>aucun jour n'est perdu</strong>. <em>(§12.4, §13)</em></span></li>
+        <li><span class="when">Dans la minute</span><span>La facture PDF numérotée est émise, le quota passe à 25 Go, Awa est notifiée.</span></li>
+        <li><span class="when">Si elle n'avait pas payé</span><span>Le 27 octobre, son espace serait passé en <strong>lecture seule pendant 30 jours</strong> : elle verrait toujours ses 42 véhicules et ses alertes, pourrait tout exporter, mais ne pourrait plus rien saisir. Aucune donnée perdue, et un règlement rouvre tout le jour même. <em>(§12.3)</em></span></li>
+      </ol>
+    </section>
+
+  </main>
+
+  <footer class="sig">
+    <span>Cahier des charges Registre &middot; version 0.2 &middot; 24 août 2026</span>
+    <span>Document de travail soumis à validation — six points arbitrés (§17.1), six encore ouverts (§17.2).</span>
+  </footer>
+
+</div>
+
+<button id="theme-toggle" type="button" aria-label="Basculer entre theme clair et sombre">Theme</button>
+<script>
+(function () {
+  var btn = document.getElementById('theme-toggle');
+  btn.addEventListener('click', function () {
+    var root = document.documentElement;
+    var current = root.getAttribute('data-theme');
+    if (!current) {
+      current = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  });
+})();
+</script>
+</body>
+</html>

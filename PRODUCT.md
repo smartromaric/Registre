@@ -1,0 +1,286 @@
+# Registre — fiche produit et architecture
+
+> Document vivant. Source de vérité fonctionnelle : [`cahier-des-charges-registre.html`](./cahier-des-charges-registre.html) v0.2 (24 août 2026).
+> Ce document traduit le cahier des charges en décisions d'architecture et en état d'avancement. Il est mis à jour à chaque lot livré — voir §10.
+
+---
+
+## 1. Pitch
+
+Les entreprises visées gèrent aujourd'hui leur parc et leurs stocks sur des
+cahiers, des classeurs et des fichiers Excel dispersés. Registre n'est pas un
+logiciel par métier (« parc automobile », « stock de gaz »...) : c'est un
+**socle unique** dans lequel chaque entreprise déclare ce qu'elle suit, et se
+fait prévenir avant qu'une échéance ne tombe ou qu'un stock ne s'épuise. Une
+bibliothèque de modèles prêts à l'emploi évite l'effet page blanche.
+
+Marché initial : PME d'Afrique de l'Ouest/Centrale (le cas d'usage de
+référence est une entreprise de transport à Douala — voir cahier des charges
+§18). Conséquences directes sur les choix techniques : réseau mobile
+intermittent (→ mode hors-ligne non négociable), téléphones d'entrée de gamme
+(→ budget de performance strict), devise et fuseau horaire par organisation.
+
+## 2. Utilisateurs et rôles
+
+Cinq rôles, cloisonnés par organisation (une organisation = une entreprise
+cliente = une unité d'abonnement) :
+
+| Rôle | Résumé |
+| --- | --- |
+| Éditeur | Exploite le service (offres, prix, quotas, organisations). Aucun accès par défaut aux données métier des clients. |
+| Administrateur d'organisation | Dirigeant / responsable IT du client. Modèles de fiche, utilisateurs, abonnement. |
+| Gestionnaire | Responsable d'un domaine (chef de parc, responsable dépôt). CRUD sur ses fiches, reçoit les alertes. |
+| Opérateur | Agent de terrain. Mouvements de stock, photos, champs autorisés. |
+| Lecteur | Consultation et export seuls. |
+
+Détail de la matrice des droits : cahier des charges §4.2. Le réglage
+« partiel »/« option » est piloté modèle par modèle et champ par champ par
+l'administrateur — voir §7.3 plus bas (moteur de permissions).
+
+## 3. Vocabulaire
+
+Voir cahier des charges §3 — Organisation, Modèle de fiche, Fiche, Champ,
+Échéance, Article, Variante, Dépôt, Mouvement, Alerte, Offre. Ces mots sont
+les noms des entités du modèle de données ci-dessous ; ne pas les renommer en
+cours de route (ni dans le code, ni dans l'UI).
+
+## 4. Périmètre et priorités de construction
+
+Le cahier des charges découpe le travail en 7 lots (§16). Ce document en garde
+la structure comme feuille de route (§10), avec un ordre légèrement réordonné
+pour construire des fondations solides avant l'UI :
+
+1. **Lot 0 — Fondations** : auth, organisations cloisonnées (RLS), rôles, stockage fichiers, journal d'audit.
+2. **Lot 1 — Moteur de fiches & actifs suivis** : modèles configurables, tous les types de champs, échéances, événements, notifications, modèle Véhicule.
+3. **Lot 2 — Stock** : articles, variantes, dépôts, mouvements, seuils, lots/péremption, consignation.
+4. **Lot 3 — Exploitation** : recherche, filtres, vues enregistrées, import/export, tableaux de bord (globaux puis focalisables §10.2).
+5. **Lot 4 — Abonnements & espace éditeur** : offres, quotas, devises, cycle de vie, encaissement manuel, factures.
+6. **Lot 5 — Hors-ligne** : PWA, base locale, file d'opérations, synchronisation.
+7. **Lot 6 — WhatsApp** : hors périmètre v1 ; le moteur de notifications est conçu pour l'accueillir sans réécriture (§8.6).
+
+### Décisions prises sur les points laissés ouverts (cahier des charges §17.2)
+
+Le cahier des charges liste six questions encore ouvertes côté client. Pour ne
+pas bloquer la construction, les hypothèses de travail suivantes sont
+retenues — **à confirmer avec le client**, sans impact structurant si la
+réponse change :
+
+| Réf. | Question | Hypothèse retenue ici |
+| --- | --- | --- |
+| Q1 | Nom définitif | On garde « Registre » comme nom de travail dans le code et l'UI. |
+| Q6 | Volumes à un an | Dimensionné pour ~50 000 fiches et ~500 000 mouvements de stock par organisation et par an (borne haute raisonnable pour une PME). Index et pagination conçus en conséquence (§14.3). |
+| Q7 | Modèle Personnel + consignes nominatives | Modèle Personnel **inclus** (déjà dans la bibliothèque §5.6) avec les protections §14.6 (durée de conservation déclarée, accès par rôle, export/effacement à la demande). Consignes : **compteurs globaux par dépôt uniquement**, pas de fichier client nominatif (c'est déjà la position par défaut du cahier des charges §7.6). |
+| Q9 | Profondeur du hors-ligne | Le découpage proposé au §11.2 est adopté tel quel comme périmètre v1. |
+| Q10 | Qui valide, sous quel délai | Sans objet pour la construction ; chaque lot livre un scénario de recette écrit (§16.1) que le client déroule quand il le souhaite. |
+| Q11 | Stockage supplémentaire à la demande | Non construit en v1 (pas d'achat de Go hors changement d'offre). Le modèle `Offer` est conçu pour accueillir un add-on plus tard sans migration de rupture. |
+
+## 5. Architecture générale
+
+Monorepo à deux applications, séparées par un contrat d'API explicite (OpenAPI
+généré par FastAPI, consommé par un client TypeScript généré côté frontend) :
+
+```
+Registre/
+  backend/     API FastAPI — voir backend/README.md
+  frontend/    Application Next.js — voir frontend/README.md
+  docs/        Manuel utilisateur, notes complémentaires
+  docker-compose.yml   Postgres, Redis, MinIO pour le dev local
+  PRODUCT.md   ce document
+```
+
+Principe directeur (hérité du playbook joint, généralisé au-delà du site
+vitrine) : **un seul endroit qui écrit une vérité donnée**. Le cloisonnement
+multi-organisation n'est jamais délégué à la vigilance d'un développeur qui
+n'oublierait pas un `WHERE organization_id = ...` : il est appliqué **au
+niveau de la base** (Postgres Row-Level Security), donc impossible à
+contourner par une route mal écrite. Voir §6.3.
+
+## 6. Backend
+
+### 6.1 Stack
+
+| Brique | Choix | Raison |
+| --- | --- | --- |
+| Langage / framework | Python 3.13, FastAPI | Typé, async, OpenAPI généré automatiquement (→ client TS frontend) |
+| ORM | SQLAlchemy 2 (async) + asyncpg | Contrôle fin du SQL généré, nécessaire pour la RLS et les index JSONB |
+| Base de données | PostgreSQL 16 | RLS native, JSONB indexable (GIN), fiable pour l'auditabilité |
+| Migrations | Alembic | Standard, versionné avec le code |
+| Files d'attente / tâches planifiées | Celery + Redis | Balayage nocturne des échéances (§8.2), envoi de notifications, compression différée |
+| Fichiers | Stockage objet compatible S3 (MinIO en dev) | Séparé de la base, liens signés à courte durée (§14.1) |
+| Auth | Google OAuth2 (Authlib) + e-mail/mot de passe (passlib bcrypt) + JWT | Chemin principal sans mot de passe (§4.4) |
+| Tests | pytest, pytest-asyncio, httpx | Cloisonnement, idempotence des alertes, additivité des mouvements testés en priorité (§16.1) |
+
+### 6.2 Architecture en couches
+
+```
+backend/app/
+  core/            config, sécurité, session DB, dépendances FastAPI
+  models/          entités SQLAlchemy (une source de vérité du schéma)
+  schemas/         contrats Pydantic entrée/sortie (jamais les models exposés tels quels)
+  repositories/    accès aux données ; seule couche qui touche la session SQLAlchemy
+  services/        règles métier ; orchestrent les repositories, ignorent HTTP
+  api/v1/routers/  couche HTTP fine : validation, appel service, sérialisation
+  dynamic_fields/  moteur de modèles/champs configurables (le cœur du produit, §5)
+  alerts/          moteur d'échéances et de seuils (§8)
+  notifications/   intentions + porteurs interchangeables (§8.6)
+  tasks/           tâches Celery planifiées
+  seeds/           bibliothèque de modèles prêts à l'emploi (§5.6)
+```
+
+Règle stricte : une route API ne parle jamais directement à SQLAlchemy. Ça
+garde le cloisonnement et les règles métier testables sans serveur HTTP.
+
+### 6.3 Cloisonnement multi-organisation
+
+Chaque table métier porte une colonne `organization_id`. Une politique RLS
+Postgres (`USING (organization_id = current_setting('app.current_org_id')::uuid)`)
+est active sur ces tables. La dépendance FastAPI d'authentification exécute
+`SET LOCAL app.current_org_id = ...` au début de chaque requête, dans la même
+transaction que la requête métier. Conséquence : même une requête mal écrite
+dans un service ne peut pas lire les données d'une autre organisation — la
+garantie est dans la base, pas dans la relecture de code (cahier des charges
+§14.1, testé par `test_tenant_isolation.py`).
+
+### 6.4 Le moteur de fiches (cœur du produit, §5)
+
+Modèle hybride, comme prescrit au §15 du cahier des charges :
+
+- `model_definitions` / `field_definitions` : le gabarit qu'un administrateur
+  configure (nom, icône, nature `asset` ou `stock_item`, liste de champs,
+  colonnes de la vue liste, rôles autorisés).
+- `records` (les fiches) : colonnes fixes du socle (statut, affectation,
+  horodatage, organisation) + colonne `data JSONB` pour les champs
+  personnalisés, avec index GIN sur les chemins marqués « filtrable ».
+- Le type de champ **Échéance** est un objet composite (date de fin,
+  justificatif, règle de rappel) et non une simple date : c'est lui qui
+  alimente le moteur d'alertes (§8) et se referme tout seul au renouvellement
+  (§5.4).
+- Six modèles prêts à l'emploi sont semés à la création d'une organisation
+  (`app/seeds/templates.py`) : Véhicule, Stock de gaz, Vêtements, Personnel,
+  Extincteur, Contrat. Activer un modèle en fait une copie propre à
+  l'organisation (plus de lien vers l'original), conformément au §5.6.
+
+### 6.5 Moteur d'échéances et de notifications (§8)
+
+- Une tâche Celery Beat par organisation (fuseau horaire propre) balaie
+  échéances, seuils de stock et lots. Elle est **idempotente** : rejouée deux
+  fois le même jour, elle ne duplique aucune alerte (clé d'unicité
+  `(source_type, source_id, palier)`).
+- Cycle de vie d'une alerte : `émise → acquittée | reportée → résolue`
+  (résolution automatique dès que la cause disparaît).
+- Le moteur ne connaît pas le canal : il produit une **intention de
+  notification** (destinataire, gabarit, données, priorité), consommée par des
+  porteurs interchangeables (`InAppCarrier`, `EmailCarrier` en v1,
+  `WhatsAppCarrier` stub prêt pour le lot 6 — §8.6).
+- Regroupement : toutes les alertes du jour pour un même destinataire partent
+  en un seul envoi (§8.4), jamais en rafale.
+
+### 6.6 Stock (§7)
+
+Un mouvement de stock est **immuable et additif** — jamais modifié, corrigé
+par un mouvement inverse. C'est ce qui rend le stock auditable et rend la
+synchronisation hors-ligne possible sans conflit (deux agents qui sortent du
+stock hors-ligne s'additionnent, ne s'écrasent jamais — cahier des charges
+§7.3, §11.3, §11.4). Cette contrainte est posée dès le lot 0 même si le
+hors-ligne n'arrive qu'au lot 5, pour ne pas avoir à réécrire le socle plus
+tard.
+
+### 6.7 Abonnements (§12)
+
+`Offer` (durée, prix par devise, quota de stockage, nombre d'utilisateurs) →
+`Subscription` (état : essai, actif, avant expiration, lecture seule,
+suspendu, archivé) → `Payment` (enregistrement manuel par l'éditeur en v1,
+conçu pour accueillir un opérateur de paiement mobile plus tard sans
+réécriture — §12.4). Un défaut de paiement ne supprime jamais de données : il
+fait seulement passer l'organisation en lecture seule puis en suspension,
+selon les durées configurables par l'éditeur (§12.3).
+
+## 7. Frontend
+
+### 7.1 Stack
+
+Next.js (App Router) + TypeScript, Tailwind CSS (jetons de thème clair/sombre
+posés dès le départ, §3 du playbook joint — jamais de couleur en dur),
+shadcn/ui (Radix — accessibilité gratuite : focus piégé, `<dialog>` natif),
+Framer Motion pour les transitions (changement de focalisation d'un tableau de
+bord, centre de notifications), TanStack Query (cache serveur) + TanStack
+Table (listes de 10 000 fiches, §14.3), React Hook Form + Zod pour les
+formulaires **générés dynamiquement à partir des définitions de champs**
+(le formulaire de saisie d'une fiche n'est jamais codé en dur : il est produit
+par le même moteur de rendu quel que soit le modèle).
+
+### 7.2 Direction UX
+
+- **Page d'accueil = « qu'est-ce qui demande mon attention aujourd'hui »**, pas
+  un mur de chiffres (§10.1).
+- **Tout indicateur est cliquable** (§10.5) — aucun chiffre mort.
+- **L'état ne dépend jamais de la seule couleur** — un mot accompagne toujours
+  une pastille (§10.5), pour rester lisible en noir et blanc et par les
+  utilisateurs daltoniens.
+- **Palette de commandes** (`⌘K` / `Ctrl K`) pour aller à une fiche, un
+  modèle, un dépôt sans naviguer à la souris — le produit est aussi utilisé
+  par des gestionnaires qui vivent au clavier.
+- **États d'échec honnêtes** (principe du playbook joint, généralisé) : pas de
+  faux « synchronisé » quand une opération est encore en file, pas de faux
+  succès sur un envoi qui a échoué.
+- **Mobile-first sur les écrans de saisie terrain**, desktop-first sur les
+  écrans de configuration et d'analyse (§14.5).
+
+### 7.3 Structure
+
+```
+frontend/src/
+  app/                routes (App Router), groupées par contexte : (auth)/, (app)/, (editor)/
+  components/ui/      primitives shadcn/ui + jetons de design
+  components/         composants métier (FicheForm, DashboardTile, AlertCenter...)
+  lib/api/            client généré depuis l'OpenAPI du backend
+  lib/                utilitaires, état partagé, hooks
+```
+
+## 8. Sécurité et conformité (§14)
+
+- HTTPS obligatoire sans exception.
+- Comptes Google : aucun mot de passe créé ni stocké.
+- Comptes e-mail : mots de passe en empreinte (bcrypt), 2FA optionnelle pour
+  les administrateurs.
+- Documents/photos jamais servis publiquement — liens signés à courte durée.
+- Journal d'audit non modifiable (auteur, date, ancienne/nouvelle valeur) sur
+  toute création/modification/suppression/export.
+- Éditeur sans accès par défaut aux données client ; toute intervention de
+  support exige une autorisation explicite et limitée dans le temps de
+  l'administrateur, tracée dans le journal de l'organisation (§4.3).
+
+## 9. Méthode de test
+
+Directement inspirée du playbook joint, généralisée à une application
+métier : **sans preuve qui regarde le résultat, on livre à l'aveugle.**
+
+- Trois familles de tests existent dès le lot 0, avant tout le reste :
+  cloisonnement inter-organisations, rejouabilité du moteur d'alertes,
+  additivité des mouvements de stock sous conflit hors-ligne simulé.
+- Aucune donnée inventée dans les jeux de démo au-delà de ce qui est
+  explicitement marqué comme tel (pas de faux témoignage, pas de faux
+  montant présenté comme réel).
+- Un test qui compile n'est pas un test qui prouve quelque chose : les tests
+  d'API vérifient l'état réellement écrit en base, pas seulement le code HTTP
+  de la réponse.
+
+## 10. Feuille de route et état d'avancement
+
+Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · ✅ fait.
+
+| Lot | Contenu | Statut |
+| --- | --- | --- |
+| 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | 🔶 |
+| 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ⬜ |
+| 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ⬜ |
+| 3 | Recherche, vues, import/export, tableaux de bord focalisables | ⬜ |
+| 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
+| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
+| 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
+
+## 11. Manuel utilisateur
+
+Tenu à jour en parallèle du développement dans
+[`docs/MANUEL_UTILISATION.md`](./docs/MANUEL_UTILISATION.md) — une section par
+fonction livrée, jamais une section pour une fonction qui n'existe pas encore.

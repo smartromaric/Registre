@@ -1,0 +1,49 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Editors ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# --- Python / backend ---
+backend/.venv/
+backend/venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# --- Alembic (garder les scripts, ignorer rien de spécial) ---
+
+# --- Node / frontend ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/next-env.d.ts
+frontend/.turbo/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+
+# --- Docker / data volumes ---
+.data/
+pgdata/
+minio-data/
+
+# --- Logs ---
+*.log
+npm-debug.log*
