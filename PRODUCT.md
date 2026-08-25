@@ -288,7 +288,7 @@ Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, pu
 | Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ✅ |
 | Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ✅ |
 | Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ✅ |
-| Abonnements/éditeur | Écrans de facturation, espace éditeur | ⬜ |
+| Abonnements/éditeur | Écrans de facturation, espace éditeur | ✅ |
 
 Détail de ce qui est fait/pas fait dans `frontend/README.md`.
 
@@ -514,7 +514,12 @@ arrivera avec le prochain travail sur le frontend.
 - **Catalogue** (§13) : `Offer` et `Currency` ne sont pas cloisonnées par
   organisation — un catalogue partagé, piloté par l'éditeur (création/mise à jour
   sans intervention de développement), consultable par tout utilisateur connecté
-  via `/catalog/offers` et `/catalog/currencies` pour choisir une offre.
+  via `/catalog/offers` et `/catalog/currencies` pour choisir une offre. Deux routes
+  de lecture ajoutées après coup (`GET /editor/offers`, `GET /editor/currencies`,
+  toutes les entrées y compris désactivées) : le catalogue public ne renvoie que les
+  entrées actives, ce qui suffit pour une organisation qui souscrit mais empêchait
+  l'éditeur de retrouver et réactiver ce qu'il venait lui-même de désactiver — bug
+  trouvé en branchant l'interface éditeur contre le backend réel.
 - **Cycle de vie de l'abonnement** (§12.3) : `Subscription` (une par organisation,
   créée automatiquement à l'inscription avec l'essai de 14 jours) traverse
   essai → actif → lecture seule → suspendu → archivé, entièrement dérivé de
@@ -686,6 +691,48 @@ donc jamais atteinte, et toute échéance à venir affichait la même tonalité
 `computeDueDateStatus` applique partout ailleurs dans l'application. Corrigé en
 réutilisant directement cette même fonction partagée plutôt qu'un calcul dupliqué
 et incomplet à partir d'un champ qui ne porte pas assez d'information à lui seul.
+
+### 10.10 Frontend — abonnement et espace éditeur (interface)
+
+Détail complet dans `frontend/README.md`. Deux surfaces distinctes, à la mesure des
+deux portes d'accès du backend (§4.3) — jamais la même coquille applicative :
+
+- **Écran Abonnement** (`app/(app)/abonnement`), dans l'application organisationnelle
+  normale : état de l'abonnement (essai/actif/lecture seule/suspendu, échéance
+  visible en permanence — §12.3), déclaration d'un paiement (« J'ai payé » +
+  référence, jamais la devise ni le montant validé — c'est le rôle de l'éditeur à
+  la vérification), historique des paiements et des factures. Le bouton de
+  déclaration et l'historique sont réservés à l'administrateur de l'organisation
+  côté UI, cohérent avec `require_role(OrgRole.ADMIN)` côté backend — un membre
+  non-administrateur voit un message explicite plutôt qu'un bouton manquant sans
+  explication.
+- **Espace éditeur** (`app/(editor)`, groupe de routes séparé, sa propre mise en
+  page, aucun sélecteur d'organisation) : réservé à `User.is_platform_admin`, un
+  indicateur de plateforme totalement indépendant de l'appartenance à une
+  organisation — un éditeur peut n'appartenir à aucune organisation. Nouveau garde
+  de route `useRequirePlatformAdmin` (`lib/auth/route-guards.ts`), même discipline
+  que les gardes existants (n'agit jamais tant que le statut d'authentification est
+  encore en chargement, redirige par remplacement). Quatre écrans : vue d'ensemble
+  (répartition des statuts d'abonnement + déclenchement manuel du balayage de
+  cycle de vie, tant qu'aucun ordonnanceur n'est branché), organisations (liste +
+  ajustement manuel d'un abonnement, motif toujours visible), règlements (file des
+  paiements déclarés, traitée comme une vraie file — le plus ancien en premier —
+  plutôt qu'un tableau générique ; validation/rejet toujours confirmés, motif
+  obligatoire vérifié côté client avant même l'appel au serveur), catalogue
+  (offres/devises, avec un badge actif/désactivé maintenant que l'écran voit tout —
+  voir le correctif ci-dessous).
+
+**Correctif appliqué après revue indépendante** : l'interface éditeur du catalogue
+avait été construite en supposant qu'aucune route `GET` n'existait côté éditeur
+pour les offres/devises (une lacune backend documentée par l'agent qui l'a
+construite) — en réalité les deux routes existaient déjà mais n'étaient simplement
+jamais appelées ; seul le catalogue public (réservé aux organisations, actives
+uniquement) était utilisé pour peupler l'écran de gestion, ce qui rendait
+impossible de retrouver et réactiver une offre ou une devise qu'on venait de
+désactiver. Corrigé côté backend (deux routes `GET /editor/offers` et
+`GET /editor/currencies` ajoutées, testées) et côté frontend (l'écran de catalogue
+et la file de règlements pointent maintenant vers ces routes plutôt que vers le
+catalogue public).
 
 ## 11. Manuel utilisateur
 

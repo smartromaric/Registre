@@ -11,7 +11,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Layers, Library, Plus, Warehouse } from "lucide-react";
+import { CreditCard, Home, Layers, Library, Plus, Warehouse } from "lucide-react";
 
 import {
   CommandDialog,
@@ -80,6 +80,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandItem onSelect={() => go("/depots")}>
             <Warehouse className="size-4" />
             Dépôts
+          </CommandItem>
+          <CommandItem onSelect={() => go("/abonnement")}>
+            <CreditCard className="size-4" />
+            Abonnement
           </CommandItem>
         </CommandGroup>
 

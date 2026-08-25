@@ -206,8 +206,8 @@ fois que vous ouvrez l'application.
 
 ## 9. Votre abonnement
 
-Votre essai gratuit dure 14 jours à partir de l'inscription. Un administrateur
-peut à tout moment :
+Votre essai gratuit dure 14 jours à partir de l'inscription. Depuis
+« Abonnement » dans la barre latérale, un administrateur peut à tout moment :
 
 - **Voir l'état de l'abonnement** — essai, actif, lecture seule, suspendu —
   et sa date d'échéance.

@@ -708,3 +708,179 @@ export interface SavedDashboardOut {
   period: DashboardPeriod;
   is_pinned: boolean;
 }
+
+// =========================================================================
+// Module Abonnements (cahier des charges §12) et Espace éditeur (§13) — mode
+// ADDITIF, ne pas toucher aux types ci-dessus. Miroir exact de
+// backend/app/schemas/subscription.py. Deux surfaces distinctes partagent ces
+// types : l'écran d'abonnement de l'organisation (ADMIN de l'organisation) et
+// l'espace éditeur (`User.is_platform_admin`, rôle de plateforme sans rapport
+// avec `OrgRole` — voir lib/roles.ts).
+// =========================================================================
+
+// --- backend/app/models/subscription.py:SubscriptionStatus -------------------------
+export type SubscriptionStatus = "trial" | "active" | "read_only" | "suspended" | "archived";
+
+// --- backend/app/models/subscription.py:PaymentStatus ------------------------------
+export type PaymentStatus = "declared" | "validated" | "rejected";
+
+// --- backend/app/models/subscription.py:PaymentMethod ------------------------------
+export type PaymentMethod = "mobile_money" | "bank_transfer" | "cash" | "other";
+
+// --- catalogue (offres/devises) : GET /catalog/offers, /catalog/currencies (tout
+// utilisateur connecté, actives uniquement) ; GET/POST/PATCH sur /editor/offers,
+// /editor/currencies réservés à l'éditeur (toutes, y compris désactivées) ---
+
+export interface OfferCreate {
+  name: string;
+  duration_months: number;
+  storage_quota_gb: number;
+  /** `null` = illimité (§12.1). */
+  user_quota?: number | null;
+  /** Un prix par devise acceptée, ex. `{"XAF": 5000, "EUR": 12}`. */
+  prices?: Record<string, number>;
+  is_active?: boolean;
+  is_featured?: boolean;
+}
+
+export interface OfferUpdate {
+  name?: string | null;
+  duration_months?: number | null;
+  storage_quota_gb?: number | null;
+  user_quota?: number | null;
+  prices?: Record<string, number> | null;
+  is_active?: boolean | null;
+  is_featured?: boolean | null;
+}
+
+export interface OfferOut {
+  id: string;
+  name: string;
+  duration_months: number;
+  storage_quota_gb: number;
+  user_quota: number | null;
+  prices: Record<string, number>;
+  is_active: boolean;
+  is_featured: boolean;
+}
+
+export interface CurrencyCreate {
+  code: string;
+  display_format?: string;
+  is_active?: boolean;
+}
+
+export interface CurrencyUpdate {
+  display_format?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface CurrencyOut {
+  id: string;
+  code: string;
+  display_format: string;
+  is_active: boolean;
+}
+
+// --- abonnement d'une organisation -------------------------------------------------
+
+export interface SubscriptionOut {
+  id: string;
+  organization_id: string;
+  offer_id: string | null;
+  status: SubscriptionStatus;
+  current_period_end: string; // ISO 8601 (datetime)
+  read_only_since: string | null;
+  suspended_since: string | null;
+}
+
+/** §13 : prolonger/suspendre/réactiver à la main, motif obligatoire — inscrit
+ * au journal d'audit. */
+export interface SubscriptionAdminAdjust {
+  new_status?: SubscriptionStatus | null;
+  new_period_end?: string | null; // ISO 8601 (datetime)
+  reason: string;
+}
+
+// --- règlements ----------------------------------------------------------------------
+
+export interface PaymentDeclare {
+  offer_id: string;
+  declared_amount: number;
+  declared_reference: string;
+}
+
+export interface PaymentValidate {
+  validated_amount: number;
+  currency_code: string;
+  method: PaymentMethod;
+  validated_reference?: string | null;
+}
+
+export interface PaymentReject {
+  reason: string;
+}
+
+/** §12.4 : l'éditeur enregistre un paiement sans demande préalable. */
+export interface PaymentRecordManual {
+  organization_id: string;
+  offer_id: string;
+  validated_amount: number;
+  currency_code: string;
+  method: PaymentMethod;
+  validated_reference?: string | null;
+}
+
+export interface PaymentOut {
+  id: string;
+  organization_id: string;
+  offer_id: string;
+  status: PaymentStatus;
+  declared_amount: number | null;
+  declared_reference: string | null;
+  validated_amount: number | null;
+  currency_code: string | null;
+  method: PaymentMethod | null;
+  validated_reference: string | null;
+  validated_at: string | null;
+  rejection_reason: string | null;
+  created_at: string; // ISO 8601 (datetime)
+}
+
+export interface InvoiceOut {
+  id: string;
+  organization_id: string;
+  payment_id: string;
+  number: string;
+  amount: number;
+  currency_code: string;
+  period_start: string; // AAAA-MM-JJ
+  period_end: string; // AAAA-MM-JJ
+  issued_at: string; // ISO 8601 (datetime)
+}
+
+/** §13 : liste des organisations côté éditeur. `offer_name` est toujours
+ * `null` côté backend à ce jour (lacune connue, pas à contourner côté client
+ * — afficher un tiret plutôt que "null"). */
+export interface OrganizationSummaryOut {
+  organization_id: string;
+  name: string;
+  country_code: string;
+  created_at: string; // ISO 8601 (datetime)
+  subscription_status: SubscriptionStatus;
+  offer_name: string | null;
+  current_period_end: string; // ISO 8601 (datetime)
+  member_count: number;
+}
+
+/** Forme ad hoc de POST /editor/subscriptions/run-lifecycle-scan (pas un schéma
+ * Pydantic nommé côté backend — voir editor.py:run_lifecycle_scan). */
+export interface LifecycleTransition {
+  organization_id: string;
+  from: SubscriptionStatus;
+  to: SubscriptionStatus;
+}
+
+export interface LifecycleScanResult {
+  transitions: LifecycleTransition[];
+}

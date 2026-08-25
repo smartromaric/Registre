@@ -151,6 +151,29 @@ Intégration **réelle**, pas une simulation : le bouton "Continuer avec Google"
   (`lib/api/dashboards.ts`) — jamais un lien vers une liste qui ne correspondrait pas
   exactement au chiffre affiché.
 
+## Choix techniques tranchés — abonnement et espace éditeur
+
+- **Deux portes d'accès, jamais confondues** (§4.3) : l'écran Abonnement vit dans
+  l'application organisationnelle normale (`app/(app)/abonnement`, garde
+  `useRequireOrganization` existante, actions réservées à `my_role === "admin"`
+  côté UI en écho à `require_role(OrgRole.ADMIN)` côté backend) ; l'espace éditeur
+  est un **groupe de routes entièrement séparé** (`app/(editor)`, sa propre mise
+  en page, aucun sélecteur d'organisation, aucune dépendance à
+  `currentOrganizationId`), gardé par un nouveau `useRequirePlatformAdmin()`
+  (`lib/auth/route-guards.ts`) qui ne lit que `user.is_platform_admin` — un
+  indicateur de plateforme, sans rapport avec l'appartenance à une organisation.
+- **Trois clients API distincts** (`lib/api/{catalog,subscriptions,editor}.ts`),
+  un par surface d'autorisation réelle côté backend, plutôt qu'un client unique
+  qui mélangerait des routes à trois niveaux d'accès différents.
+- **Déclarer ≠ valider** : le formulaire de déclaration (organisation) n'envoie
+  que `{offer_id, declared_amount, declared_reference}` — jamais de devise ni de
+  méthode de paiement, qui restent la décision de l'éditeur à la vérification.
+  Le dialogue de validation affiche la déclaration d'origine au-dessus du
+  formulaire, pour ne jamais valider à l'aveugle.
+- **Un 409 (paiement déjà traité) rafraîchit la file** plutôt que d'afficher une
+  erreur générique sur une file devenue obsolète — un autre éditeur a pu traiter
+  la même déclaration entretemps.
+
 ## Choix techniques tranchés — moteur de fiches
 
 - **Rendu de champ générique** (`components/fiches/field-renderer.tsx` en saisie,
@@ -185,7 +208,10 @@ src/
       models/            constructeur et bibliothèque de modèles, réglages
       models/[id]/records/  création et édition de fiches
       depots/              gestion des dépôts (module Stock)
+      abonnement/          état de l'abonnement, déclaration de paiement
       r/[recordId]/       lien court vers le détail d'une fiche
+    (editor)/            espace éditeur — mise en page séparée, réservé is_platform_admin
+      editor/             vue d'ensemble, organisations, règlements, catalogue
     api/auth/*/route.ts   Route Handlers = seul endroit qui touche le cookie httpOnly
     layout.tsx, providers.tsx, globals.css
   components/
@@ -197,16 +223,23 @@ src/
                          seuils, lots, consignation, dépôts
     dashboard/            tuiles d'indicateurs, rangées de barres, bandeau de
                          focalisation, listes cliquables, tableaux de bord enregistrés
+    subscription/         déclaration de paiement (organisation)
+    editor/                dialogues de l'espace éditeur (offres, devises, règlements,
+                         ajustement d'abonnement, paiement manuel)
     data-table.tsx, state-views.tsx, app-nav.tsx, command-palette.tsx
   lib/
     api/                client HTTP par domaine (auth, organizations, model-definitions,
-                         records, documents, stock, dashboards) — chaque fonction lève `ApiError`
-    auth/               AuthProvider (contexte React) + gardes de route
+                         records, documents, stock, dashboards, catalog, subscriptions,
+                         editor) — chaque fonction lève `ApiError`
+    auth/               AuthProvider (contexte React) + gardes de route (dont
+                         useRequirePlatformAdmin, indépendant de l'organisation courante)
     session.ts          cookie httpOnly (refresh token) — server-only
     countries.ts, sectors.ts, roles.ts, format.ts, utils.ts, due-date-status.ts, ...
 ```
 
-`(app)` et `(auth)` sont des **groupes de routes** (les parenthèses sont retirées de l'URL).
+`(app)`, `(auth)` et `(editor)` sont des **groupes de routes** (les parenthèses sont
+retirées de l'URL) — `(editor)` est un groupe frère de `(app)`, pas imbriqué dedans :
+l'espace éditeur ne réutilise ni sa coquille ni son contexte d'organisation.
 
 ## État : fait / pas fait
 
@@ -227,9 +260,13 @@ src/
   d'attention + synthèse), focalisation par modèle avec indicateurs propres à sa
   nature, filtres dépôt/site/période, listes cliquables derrière chaque indicateur
   d'anomalie, tableaux de bord enregistrés et épinglés comme page d'accueil.
+- **Abonnement et espace éditeur** : écran d'abonnement organisationnel (état,
+  déclaration de paiement, historique paiements/factures) dans l'application
+  normale ; espace éditeur séparé (`app/(editor)`, réservé à `is_platform_admin`) —
+  catalogue d'offres/devises, organisations, file de règlements à valider/rejeter,
+  ajustement manuel d'abonnement, déclenchement du balayage de cycle de vie.
 
 **Pas fait (hors périmètre à ce stade, volontairement)**
-- Écrans d'abonnement/espace éditeur.
 - Mode hors-ligne (PWA, lot 5).
 - Réinitialisation de mot de passe, 2FA, acceptation d'invitation par e-mail (pas encore
   construites côté backend non plus).

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, ChevronsUpDown, LogOut, Search } from "lucide-react";
+import { Check, ChevronsUpDown, LogOut, Search, ShieldCheck } from "lucide-react";
 
 import { AppSidebar, ModelsNavMenu } from "@/components/app-nav";
 import { Logo } from "@/components/brand/logo";
@@ -145,6 +145,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
                   </div>
                 </DropdownMenuLabel>
+                {user?.is_platform_admin ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/editor">
+                        <ShieldCheck className="size-4" />
+                        Espace éditeur
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => void logout()}>
                   <LogOut className="size-4" />

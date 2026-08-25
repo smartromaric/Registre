@@ -19,3 +19,17 @@ export function formatAmount(value: number, currencyCode?: string): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+/** Montant selon le format d'affichage propre à une devise éditeur (§12.2,
+ * §13 — ex. `"{amount} FCFA"`), pas le symbole ISO générique de
+ * `formatAmount` : les devises de la plateforme sont une table administrée à
+ * la main, leur gabarit d'affichage doit primer sur toute déduction Intl.
+ * Sans devise connue, retombe sur un nombre décimal simple. */
+export function formatWithCurrencyFormat(
+  value: number,
+  currency?: { display_format: string } | null,
+): string {
+  const amount = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(value);
+  if (!currency) return amount;
+  return currency.display_format.replace("{amount}", amount);
+}

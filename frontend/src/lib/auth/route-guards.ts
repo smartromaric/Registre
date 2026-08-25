@@ -54,3 +54,24 @@ export function useRequireOrganization(): void {
     }
   }, [status, organizations, organizationsLoading, router]);
 }
+
+/** (editor)/* : réservé aux utilisateurs `is_platform_admin` (cahier des
+ * charges §4.3, §13) — un indicateur de plateforme totalement indépendant des
+ * organisations et de `OrgRole` : un éditeur peut n'appartenir à aucune
+ * organisation, et un ADMIN d'organisation n'est pas éditeur pour autant.
+ * Contrairement à `useRequireOrganization`, ne dépend d'aucune liste
+ * d'organisations : `status === "authenticated"` suffit pour lire `user`. */
+export function useRequirePlatformAdmin(): void {
+  const router = useRouter();
+  const { status, user } = useAuth();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+      return;
+    }
+    if (status === "authenticated" && !user?.is_platform_admin) {
+      router.replace("/");
+    }
+  }, [status, user, router]);
+}
