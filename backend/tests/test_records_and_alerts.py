@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import select, text
 
 from app.alerts.engine import compute_paliers_for_today, resolve_alerts_for_deadline, scan_organization_deadlines
-from app.alerts.notify import dispatch_new_alert_notifications
+from app.alerts.notify import dispatch_deadline_notifications
 from app.core.security import hash_password
 from app.dynamic_fields.types import FieldType
 from app.dynamic_fields.validation import FieldValidationError, validate_and_normalize
@@ -156,7 +156,7 @@ async def test_alert_scan_is_idempotent_and_creates_in_app_notification(db_sessi
 
     today = date.today()
     first_run = await scan_organization_deadlines(db_session, org.id, today)
-    await dispatch_new_alert_notifications(db_session, org.id, first_run)
+    await dispatch_deadline_notifications(db_session, org.id, first_run)
     await db_session.flush()
 
     second_run = await scan_organization_deadlines(db_session, org.id, today)

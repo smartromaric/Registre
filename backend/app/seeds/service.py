@@ -7,9 +7,12 @@ from app.models.membership import Membership
 from app.models.model_definition import FieldDefinition, ModelDefinition
 from app.models.user import User
 from app.schemas.model_definition import FieldDefinitionCreate, FieldOption
+from app.schemas.stock import ArticleConfigCreate
 from app.seeds.templates import TEMPLATES
 from app.services.audit_service import AuditService
 from app.services.organization_service import PermissionDeniedError
+from app.services.record_service import RecordService
+from app.services.stock_service import StockService
 
 
 class TemplateNotFoundError(Exception):
@@ -72,6 +75,26 @@ async def activate_template(
 
     await db.flush()
     await db.refresh(model, attribute_names=["field_definitions"])
+
+    for article_spec in template.get("starter_articles", []):
+        record_service = RecordService(db)
+        record = await record_service.create(
+            organization_id=organization_id,
+            actor=actor,
+            actor_membership=actor_membership,
+            model=model,
+            data=article_spec["data"],
+            status=None,
+            site=None,
+            assigned_person_record_id=None,
+        )
+        await StockService(db).configure_article(
+            organization_id=organization_id,
+            actor=actor,
+            actor_membership=actor_membership,
+            record=record,
+            payload=ArticleConfigCreate(**article_spec["config"]),
+        )
 
     await AuditService(db).record(
         organization_id=organization_id,

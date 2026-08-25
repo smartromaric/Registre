@@ -2,11 +2,11 @@
 modèle en fait une copie propre à l'organisation, plus aucun lien vivant vers le
 gabarit — voir ModelDefinitionService / seed_model_from_template.
 
-Seuls les quatre modèles de nature "actif suivi" sont livrés avec le lot 1.
-Stock de gaz et Vêtements sont de nature "article de stock" (§5.5) : les seeder
-avant que le lot 2 ne construise dépôts/mouvements/seuils créerait des fiches qui
-ont l'air de suivre un stock sans réellement le faire — contraire au principe des
-états d'échec honnêtes. Ils rejoignent la bibliothèque avec le lot 2.
+Les modèles de nature "article de stock" viennent avec un article d'exemple déjà
+configuré (variantes, seuils, `starter_articles`) : sans ça, activer « Stock de
+gaz » ne donnerait qu'un modèle vide — l'effet page blanche que la bibliothèque
+existe justement pour éviter (§5). L'organisation les modifie ou les supprime
+librement ensuite (§5.6 : « un modèle activé devient sa propriété »).
 """
 
 from app.dynamic_fields.types import FieldType
@@ -191,6 +191,59 @@ TEMPLATES: dict[str, dict] = {
                 "field_type": FieldType.NUMBER,
                 "number_unit": "jours",
             },
+        ],
+    },
+    "gas_stock": {
+        "name_singular": "Article de gaz",
+        "name_plural": "Stock de gaz",
+        "icon": "flame",
+        "color": "#B26B00",
+        "nature": RecordNature.STOCK_ITEM,
+        "title_field_key": "nom",
+        "fields": [
+            {"key": "nom", "label": "Nom", "field_type": FieldType.TEXT_SHORT, "is_required": True, "show_in_list": True},
+        ],
+        "starter_articles": [
+            {
+                "data": {"nom": "Bouteille de gaz"},
+                "config": {
+                    "unit": "bouteille",
+                    "variant_attribute_labels": ["Format"],
+                    "is_consigned": True,
+                    "variants": [
+                        {"attributes": {"Format": "6 kg"}, "default_threshold": 5},
+                        {"attributes": {"Format": "12,5 kg"}, "default_threshold": 15},
+                        {"attributes": {"Format": "25 kg"}, "default_threshold": 8},
+                        {"attributes": {"Format": "50 kg"}, "default_threshold": 3},
+                    ],
+                },
+            }
+        ],
+    },
+    "clothing": {
+        "name_singular": "Article vestimentaire",
+        "name_plural": "Vêtements",
+        "icon": "shirt",
+        "color": "#0E6E63",
+        "nature": RecordNature.STOCK_ITEM,
+        "title_field_key": "nom",
+        "fields": [
+            {"key": "nom", "label": "Nom", "field_type": FieldType.TEXT_SHORT, "is_required": True, "show_in_list": True},
+        ],
+        "starter_articles": [
+            {
+                "data": {"nom": "Chemise de service blanche"},
+                "config": {
+                    "unit": "pièce",
+                    "variant_attribute_labels": ["Taille"],
+                    "variants": [
+                        {"attributes": {"Taille": "S"}, "default_threshold": 5},
+                        {"attributes": {"Taille": "M"}, "default_threshold": 5},
+                        {"attributes": {"Taille": "L"}, "default_threshold": 5},
+                        {"attributes": {"Taille": "XL"}, "default_threshold": 5},
+                    ],
+                },
+            }
         ],
     },
 }

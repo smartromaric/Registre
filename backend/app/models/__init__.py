@@ -7,6 +7,17 @@ from app.models.model_definition import FieldDefinition, ModelDefinition, Record
 from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.record import Record, RecordDeadline, RecordEvent
+from app.models.stock import (
+    ArticleConfig,
+    ArticleVariant,
+    ConsignmentLevel,
+    Depot,
+    DepotThreshold,
+    MovementType,
+    StockLevel,
+    StockLot,
+    StockMovement,
+)
 from app.models.user import User
 
 __all__ = [
@@ -27,4 +38,13 @@ __all__ = [
     "AlertSourceType",
     "AlertStatus",
     "Notification",
+    "Depot",
+    "ArticleConfig",
+    "ArticleVariant",
+    "DepotThreshold",
+    "StockMovement",
+    "MovementType",
+    "StockLevel",
+    "StockLot",
+    "ConsignmentLevel",
 ]

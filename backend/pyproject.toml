@@ -50,7 +50,7 @@ asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 115
+line-length = 130
 target-version = "py312"
 
 [tool.ruff.lint]

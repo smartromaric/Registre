@@ -14,7 +14,9 @@ def _str_enum_column(enum_cls: type[enum.Enum], name: str):
 
 
 class AlertSourceType(str, enum.Enum):
-    DEADLINE = "deadline"  # RecordDeadline (échéance, §8.1) — stock/lots arrivent au lot 2
+    DEADLINE = "deadline"  # RecordDeadline (échéance, §8.1)
+    STOCK_THRESHOLD = "stock_threshold"  # StockLevel sous le seuil (§8.1)
+    LOT_EXPIRY = "lot_expiry"  # StockLot proche de la péremption (§8.1)
 
 
 class AlertStatus(str, enum.Enum):

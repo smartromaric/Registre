@@ -273,7 +273,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | --- | --- | --- |
 | 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | ✅ |
 | 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ✅ |
-| 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ⬜ |
+| 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ⬜ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
@@ -348,6 +348,41 @@ focalisation des tableaux de bord (lot 3), Celery Beat pour le balayage automati
 nocturne (le moteur est prêt et idempotent ; le déclenchement quotidien automatique
 attend un environnement avec Redis provisionné — en attendant, `POST
 .../alerts/run-scan` permet un déclenchement manuel ou par cron externe).
+
+### 10.3 Détail du lot 2 livré
+
+- **Dépôts, articles, variantes** (`app/models/stock.py`) : un article est une fiche
+  (`Record` de nature `stock_item`) ; `ArticleConfig` porte ce qui est propre au stock
+  (unité, prix, suivi de lots, consignation) sans mélanger cette configuration aux
+  champs personnalisés de l'organisation. Une variante existe toujours, même pour un
+  article non décliné (`is_default`), pour que mouvements et niveaux de stock
+  s'accrochent toujours au même type d'objet.
+- **Mouvements immuables et additifs** (§7.3, §11.3, §11.4) : `StockLevel` (quantité
+  courante par variante/dépôt) est tenu à jour par un **trigger Postgres**, pas par le
+  code applicatif — l'incrément est atomique même sous écritures concurrentes.
+  **Vérifié en reproduisant littéralement le scénario du cahier des charges §18.3**
+  (deux sorties concurrentes qui s'additionnent, jamais un écrasement).
+- **Immutabilité** : `stock_movements` porte le même trigger de rejet
+  UPDATE/DELETE que `audit_logs` (lot 0) — une correction s'écrit par mouvement
+  inverse, jamais par modification.
+- **Seuils** (§7.4) : global par variante + surcharge par dépôt, intégrés au moteur
+  d'alertes existant (nouvelle source `stock_threshold`, palier hebdomadaire tant que
+  la situation dure, résolution automatique dès le réapprovisionnement — §8.1, §8.3).
+- **Lots et péremption** (§7.5) : activable article par article, sortie FIFO
+  automatique par date de péremption (verrouillage `SELECT FOR UPDATE` pour éviter la
+  double consommation sous concurrence), alertes de péremption (nouvelle source
+  `lot_expiry`, mêmes paliers que les échéances).
+- **Consignation** (§7.6) : compteurs vides/en circulation/montant encaissé,
+  strictement les deux actions décrites par le cahier des charges (sortie de pleine,
+  retour de vide) — le compteur "pleines" n'est pas dupliqué, c'est directement
+  `StockLevel` (une seule source de vérité).
+- **Bibliothèque** : Stock de gaz et Vêtements rejoignent Véhicule/Personnel/
+  Extincteur/Contrat, chacun avec un article d'exemple déjà configuré (formats de
+  bouteille, tailles) pour éviter l'effet page blanche (§5.6).
+
+Non fait volontairement : suivi nominatif des consignes par client (explicitement hors
+périmètre v1, §7.6), achat de stockage supplémentaire (lot 4), écran de saisie
+mobile-first pour les mouvements (frontend, lot suivant).
 
 ## 11. Manuel utilisateur
 

@@ -12,6 +12,7 @@
 3. [Activer un modèle prêt à l'emploi](#3-activer-un-modèle-prêt-à-lemploi)
 4. [Créer une fiche](#4-créer-une-fiche)
 5. [Comprendre le champ Échéance et les alertes](#5-comprendre-le-champ-échéance-et-les-alertes)
+6. [Gérer un stock](#6-gérer-un-stock)
 
 ---
 
@@ -70,13 +71,16 @@ Plutôt que de partir d'une page blanche, activez un modèle déjà préparé :
 - **Extincteur** — numéro, emplacement, type, date de recharge, date de contrôle.
 - **Contrat** — objet, partie contractante, document signé, dates de début et de
   fin, préavis.
+- **Stock de gaz** — un article de démarrage (« Bouteille de gaz ») déjà
+  décliné en quatre formats (6 kg, 12,5 kg, 25 kg, 50 kg), avec un seuil
+  d'alerte par format et le suivi de consignation activé.
+- **Vêtements** — un article de démarrage (« Chemise de service blanche »)
+  décliné en quatre tailles (S, M, L, XL), avec un seuil d'alerte par taille.
 
 Un clic sur « Activer » crée le modèle avec tous ses champs déjà en place. Il
-devient ensuite entièrement à vous : ajoutez, retirez ou renommez des champs
-sans que cela n'affecte les autres organisations.
-
-_Les modèles Stock de gaz et Vêtements rejoindront la bibliothèque avec le
-module Stock, à venir._
+devient ensuite entièrement à vous : ajoutez, retirez ou renommez des champs,
+ou modifiez les articles de démarrage, sans que cela n'affecte les autres
+organisations.
 
 ## 4. Créer une fiche
 
@@ -100,3 +104,33 @@ avant, 7 jours avant, le jour même, puis tous les 3 jours en cas de retard.
 Les alertes apparaissent dans le centre de notifications. Quand vous
 renouvelez une échéance (nouvelle date saisie), l'alerte en cours se referme
 d'elle-même — vous n'avez rien à faire de plus.
+
+## 6. Gérer un stock
+
+Pour un modèle de nature « article de stock » (Stock de gaz, Vêtements, ou un
+modèle que vous créez vous-même), chaque fiche est un article, décliné en
+variantes (une taille, un format...). Trois opérations couvrent l'usage
+quotidien :
+
+- **Entrée** — une livraison arrive : indiquez la variante, le dépôt, la
+  quantité et, si le suivi des lots est actif pour cet article, le numéro de
+  lot et sa date de péremption.
+- **Sortie** — une vente, une consommation : la quantité est retirée du dépôt
+  choisi. Si l'article suit des lots, le plus proche de la péremption part en
+  premier, automatiquement.
+- **Transfert** — déplace une quantité d'un dépôt vers un autre.
+
+Une erreur de saisie ne se corrige jamais en modifiant un mouvement passé —
+un mouvement, une fois enregistré, ne change plus. On la corrige par un
+**ajustement** : vous indiquez la quantité réellement comptée, l'écart est
+calculé et enregistré avec le motif que vous donnez.
+
+Quand la quantité disponible passe sous le seuil que vous avez fixé, une
+alerte apparaît — puis un rappel chaque semaine tant que la situation dure.
+Dès qu'un réapprovisionnement fait remonter le stock au-dessus du seuil,
+l'alerte se referme d'elle-même.
+
+Pour un article **consigné** (le cas du gaz : la bouteille circule, seul le
+contenu se vend), deux actions supplémentaires suivent les bouteilles chez
+vos clients : « sortie pleine » (une bouteille pleine part chez un client) et
+« retour vide » (le client rapporte une bouteille vide).
