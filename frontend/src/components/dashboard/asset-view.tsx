@@ -61,7 +61,7 @@ export function AssetDashboardView({
         <ChartSection caption="Répartition par statut">
           <BarRows
             data={data.status_breakdown.map((s) => ({ key: s.status, label: s.status, value: s.count }))}
-            barClassName="bg-primary"
+            tone="primary"
           />
         </ChartSection>
       ) : null}
@@ -69,7 +69,7 @@ export function AssetDashboardView({
       <ChartSection caption="Échéances à venir, par mois">
         <BarRows
           data={data.upcoming_deadlines_by_month.map((m) => ({ key: m.month, label: formatMonth(m.month), value: m.count }))}
-          barClassName="bg-warning"
+          tone="warning"
           emptyMessage="Aucune échéance à venir sur cette période."
         />
       </ChartSection>
@@ -83,7 +83,7 @@ export function AssetDashboardView({
               value: m.amount,
               display: formatMoney(m.amount, currencyCode),
             }))}
-            barClassName="bg-primary"
+            tone="primary"
             emptyMessage="Aucun événement chiffré sur cette période."
           />
         </ChartSection>

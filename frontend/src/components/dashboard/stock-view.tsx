@@ -60,7 +60,7 @@ export function StockDashboardView({ data, currencyCode, periodLabel, onOpenDril
       <ChartSection caption="Stock disponible par variante">
         <BarRows
           data={topRows(data.stock_by_variant.map((v) => ({ key: v.variant_id, label: v.label, value: v.quantity })))}
-          barClassName="bg-primary"
+          tone="primary"
           emptyMessage="Aucune variante suivie."
         />
       </ChartSection>
@@ -68,7 +68,7 @@ export function StockDashboardView({ data, currencyCode, periodLabel, onOpenDril
       <ChartSection caption="Stock disponible par dépôt">
         <BarRows
           data={topRows(data.stock_by_depot.map((d) => ({ key: d.depot_id, label: d.depot_name, value: d.quantity })))}
-          barClassName="bg-primary"
+          tone="primary"
           emptyMessage="Aucun dépôt rattaché."
         />
       </ChartSection>
