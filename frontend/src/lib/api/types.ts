@@ -335,3 +335,185 @@ export interface PositionFieldValue {
   lat: number;
   lng: number;
 }
+
+// =========================================================================
+// Module Stock (cahier des charges §7) — mode ADDITIF, ne pas toucher aux
+// types ci-dessus. Miroir exact de backend/app/schemas/stock.py. Un article
+// de stock est une `Record` (nature `stock_item`, voir plus haut) dont les
+// données propres au stock (config, variantes, niveaux, mouvements, lots,
+// consignation) vivent dans des tables dédiées, séparées de `Record.data`.
+// =========================================================================
+
+export interface DepotCreate {
+  name: string;
+  address?: string | null;
+}
+
+export interface DepotUpdate {
+  name?: string | null;
+  address?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface DepotOut {
+  id: string;
+  name: string;
+  address: string | null;
+  is_active: boolean;
+}
+
+export interface VariantInput {
+  attributes?: Record<string, string> | null;
+  label?: string | null;
+  default_threshold?: number | null;
+}
+
+/** `variant_attribute_labels` : au plus 2 libellés (ex. `["Format"]` ou
+ * `["Taille", "Couleur"]`) — les variantes sont déclinées selon ces attributs.
+ * `variants` vide → une variante par défaut (non déclinée) est créée par le
+ * backend. */
+export interface ArticleConfigCreate {
+  unit?: string | null;
+  purchase_price?: number | null;
+  sale_price?: number | null;
+  variant_attribute_labels?: string[] | null;
+  lot_tracking_enabled: boolean;
+  is_consigned: boolean;
+  deposit_unit_amount?: number | null;
+  variants: VariantInput[];
+}
+
+export interface ArticleConfigOut {
+  id: string;
+  record_id: string;
+  unit: string | null;
+  purchase_price: number | null;
+  sale_price: number | null;
+  variant_attribute_labels: string[] | null;
+  lot_tracking_enabled: boolean;
+  is_consigned: boolean;
+  deposit_unit_amount: number | null;
+}
+
+export interface ArticleVariantOut {
+  id: string;
+  record_id: string;
+  attributes: Record<string, string> | null;
+  label: string | null;
+  is_default: boolean;
+  default_threshold: number | null;
+}
+
+export interface ArticleWithVariantsOut {
+  config: ArticleConfigOut;
+  variants: ArticleVariantOut[];
+}
+
+/** `depot_id: null` = seuil global de la variante, sinon seuil spécifique au dépôt. */
+export interface ThresholdSet {
+  depot_id?: string | null;
+  threshold: number;
+}
+
+export interface DepotThresholdOut {
+  depot_id: string;
+  threshold: number;
+}
+
+// --- backend/app/models/stock.py:MovementType -------------------------------------------
+export type MovementType = "entry" | "exit" | "transfer_out" | "transfer_in" | "adjustment";
+
+export interface MovementCreate {
+  client_operation_id?: string | null;
+  variant_id: string;
+  depot_id: string;
+  quantity: number;
+  reason?: string | null;
+  supplier?: string | null;
+  beneficiary?: string | null;
+  cost_amount?: number | null;
+  lot_number?: string | null;
+  lot_expiry_date?: string | null; // AAAA-MM-JJ
+  document_id?: string | null;
+  note?: string | null;
+}
+
+/** `note` obligatoire — justification d'ajustement (cahier des charges §7.3). */
+export interface AdjustmentCreate {
+  client_operation_id?: string | null;
+  variant_id: string;
+  depot_id: string;
+  counted_quantity: number;
+  note: string;
+}
+
+export interface TransferCreate {
+  client_operation_id?: string | null;
+  variant_id: string;
+  from_depot_id: string;
+  to_depot_id: string;
+  quantity: number;
+  note?: string | null;
+}
+
+export interface MovementOut {
+  id: string;
+  client_operation_id: string | null;
+  variant_id: string;
+  depot_id: string;
+  movement_type: MovementType;
+  quantity_delta: number;
+  reason: string | null;
+  supplier: string | null;
+  beneficiary: string | null;
+  cost_amount: number | null;
+  lot_number: string | null;
+  lot_expiry_date: string | null; // AAAA-MM-JJ
+  transfer_group_id: string | null;
+  adjustment_counted_quantity: number | null;
+  note: string | null;
+  created_at: string; // ISO 8601 (datetime)
+}
+
+export interface MovementListOut {
+  items: MovementOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface StockLevelOut {
+  id: string;
+  variant_id: string;
+  depot_id: string;
+  quantity: number;
+  updated_at: string; // ISO 8601 (datetime)
+}
+
+export interface StockLotOut {
+  id: string;
+  variant_id: string;
+  depot_id: string;
+  lot_number: string;
+  expiry_date: string; // AAAA-MM-JJ
+  remaining_quantity: number;
+}
+
+export type ConsignmentAction = "deliver_full" | "return_empty";
+
+export interface ConsignmentActionCreate {
+  variant_id: string;
+  depot_id: string;
+  action: ConsignmentAction;
+  quantity: number;
+  deposit_amount?: number | null;
+}
+
+export interface ConsignmentSummaryOut {
+  variant_id: string;
+  depot_id: string;
+  full_count: number;
+  empty_count: number;
+  in_circulation_count: number;
+  deposit_amount_collected: number;
+}

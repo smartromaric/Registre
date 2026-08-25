@@ -122,8 +122,13 @@ d'elle-même — vous n'avez rien à faire de plus.
 
 Pour un modèle de nature « article de stock » (Stock de gaz, Vêtements, ou un
 modèle que vous créez vous-même), chaque fiche est un article, décliné en
-variantes (une taille, un format...). Trois opérations couvrent l'usage
-quotidien :
+variantes (une taille, un format...). Ouvrez la fiche de l'article : un
+panneau « Stock » y affiche la quantité disponible par dépôt et un bouton
+« Nouveau mouvement » qui propose les quatre opérations ci-dessous, chacune
+dans son propre onglet. Les dépôts eux-mêmes se créent et se renomment depuis
+« Dépôts » dans la barre latérale.
+
+Trois opérations couvrent l'usage quotidien :
 
 - **Entrée** — une livraison arrive : indiquez la variante, le dépôt, la
   quantité et, si le suivi des lots est actif pour cet article, le numéro de
@@ -141,7 +146,10 @@ calculé et enregistré avec le motif que vous donnez.
 Quand la quantité disponible passe sous le seuil que vous avez fixé, une
 alerte apparaît — puis un rappel chaque semaine tant que la situation dure.
 Dès qu'un réapprovisionnement fait remonter le stock au-dessus du seuil,
-l'alerte se referme d'elle-même.
+l'alerte se referme d'elle-même. Le seuil se règle depuis le panneau Stock de
+la fiche : un seuil global pour la variante, éventuellement remplacé par un
+seuil différent pour tel ou tel dépôt (utile quand un dépôt tourne
+naturellement avec moins de stock qu'un autre).
 
 Pour un article **consigné** (le cas du gaz : la bouteille circule, seul le
 contenu se vend), deux actions supplémentaires suivent les bouteilles chez

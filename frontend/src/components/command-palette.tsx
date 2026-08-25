@@ -11,7 +11,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Layers, Library, Plus } from "lucide-react";
+import { Home, Layers, Library, Plus, Warehouse } from "lucide-react";
 
 import {
   CommandDialog,
@@ -76,6 +76,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandItem onSelect={() => go("/models/new")}>
             <Plus className="size-4" />
             Créer un modèle
+          </CommandItem>
+          <CommandItem onSelect={() => go("/depots")}>
+            <Warehouse className="size-4" />
+            Dépôts
           </CommandItem>
         </CommandGroup>
 

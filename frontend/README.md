@@ -112,6 +112,26 @@ Intégration **réelle**, pas une simulation : le bouton "Continuer avec Google"
 - TanStack Query pour le cache serveur ; React Hook Form + Zod pour tous les formulaires,
   avec des contraintes alignées sur les schémas Pydantic (longueurs, formats).
 
+## Choix techniques tranchés — module Stock
+
+- **Un article de stock reste une fiche** : le panneau Stock (`components/stock/`)
+  s'affiche sur l'écran de détail de fiche existant quand `model.nature ===
+  "stock_item"` (`app/(app)/models/[modelId]/records/[recordId]/page.tsx`) — pas un
+  second écran séparé qui dupliquerait navigation, titre, statut, documents.
+- **Saisie de mouvement en quatre onglets** (entrée/sortie/ajustement/transfert,
+  `components/stock/movement-dialog.tsx`) plutôt qu'un formulaire unique avec des
+  champs qui apparaissent/disparaissent selon le type — chaque opération a des règles
+  propres (l'ajustement exige une justification et une confirmation
+  actuel/compté/écart, l'entrée exige un lot si l'article en suit, le transfert
+  refuse un même dépôt aux deux bouts) plus lisibles séparées qu'agglomérées.
+- **Seuils** : un seuil global de variante et ses surcharges par dépôt
+  (`components/stock/variant-threshold-dialog.tsx`) sont deux entrées distinctes du
+  même dialogue, jamais un seul champ ambigu — cohérent avec `ThresholdSet.depot_id`
+  côté backend (`null` = global, sinon surcharge d'un dépôt précis).
+- **Historique et lots paginés côté serveur** (`lib/api/stock.ts:listMovements`,
+  `listLots`) — jamais tout chargé puis découpé côté client, l'historique d'un dépôt
+  actif peut grossir sans limite.
+
 ## Choix techniques tranchés — moteur de fiches
 
 - **Rendu de champ générique** (`components/fiches/field-renderer.tsx` en saisie,
@@ -145,6 +165,7 @@ src/
     (app)/              coquille applicative connectée (nav, sélecteur d'org)
       models/            constructeur et bibliothèque de modèles, réglages
       models/[id]/records/  création et édition de fiches
+      depots/              gestion des dépôts (module Stock)
       r/[recordId]/       lien court vers le détail d'une fiche
     api/auth/*/route.ts   Route Handlers = seul endroit qui touche le cookie httpOnly
     layout.tsx, providers.tsx, globals.css
@@ -153,10 +174,12 @@ src/
     auth/, brand/, form/ écrans d'authentification et éléments de marque
     fiches/              moteur de rendu des champs dynamiques (saisie + lecture),
                          constructeur de modèle, éditeur/liste de champs, documents
+    stock/                panneau Stock d'une fiche article, saisie de mouvement,
+                         seuils, lots, consignation, dépôts
     data-table.tsx, state-views.tsx, app-nav.tsx, command-palette.tsx
   lib/
     api/                client HTTP par domaine (auth, organizations, model-definitions,
-                         records, documents) — chaque fonction lève `ApiError`
+                         records, documents, stock) — chaque fonction lève `ApiError`
     auth/               AuthProvider (contexte React) + gardes de route
     session.ts          cookie httpOnly (refresh token) — server-only
     countries.ts, sectors.ts, roles.ts, format.ts, utils.ts, due-date-status.ts, ...
@@ -176,11 +199,13 @@ src/
   réorganisation de champs après coup), formulaire dynamique pour les 14 types de champ,
   liste et détail de fiche, événements datés, bibliothèque de modèles, documents/photos avec
   relecture à tout moment.
+- **Module Stock** : dépôts, configuration d'article (unité, prix, lots, consignation,
+  variantes), saisie de mouvement (entrée/sortie/ajustement/transfert), seuils
+  globaux et par dépôt, historique paginé, lots et péremption, consignation.
 
 **Pas fait (hors périmètre à ce stade, volontairement)**
-- Module Stock (dépôts, articles/variantes, mouvements, seuils) côté interface — le backend
-  est prêt (PRODUCT.md §10.3), l'écran reste à construire.
-- Tableaux de bord — vue globale puis focalisable par modèle (cahier des charges §10.2).
+- Tableaux de bord — vue globale puis focalisable par modèle (cahier des charges §10.2) ;
+  le backend est prêt (PRODUCT.md §10.4), l'écran reste à construire.
 - Écrans d'abonnement/espace éditeur.
 - Mode hors-ligne (PWA, lot 5).
 - Réinitialisation de mot de passe, 2FA, acceptation d'invitation par e-mail (pas encore

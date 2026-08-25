@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Layers, Library, Menu, Plus } from "lucide-react";
+import { Home, Layers, Library, Menu, Plus, Warehouse } from "lucide-react";
 
 import { ModelIcon } from "@/components/fiches/model-icon";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,7 @@ export function AppSidebar() {
           active={pathname === "/models/library"}
         />
         <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} />
+        <SidebarLink href="/depots" icon={<Warehouse className="size-4 shrink-0" />} label="Dépôts" active={pathname === "/depots"} />
       </div>
     </aside>
   );
@@ -146,6 +147,12 @@ export function ModelsNavMenu() {
           <Link href="/models/new">
             <Plus className="size-4" />
             Nouveau modèle
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/depots">
+            <Warehouse className="size-4" />
+            Dépôts
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

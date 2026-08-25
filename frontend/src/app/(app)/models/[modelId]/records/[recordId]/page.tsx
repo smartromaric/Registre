@@ -11,6 +11,7 @@ import { FieldValueView } from "@/components/fiches/field-value";
 import { ModelIcon } from "@/components/fiches/model-icon";
 import { getRecordTitle } from "@/components/fiches/record-title";
 import { RecordEventsPanel } from "@/components/fiches/record-events-panel";
+import { StockPanel } from "@/components/stock/stock-panel";
 import { EmptyState } from "@/components/state-views";
 import {
   AlertDialog,
@@ -178,6 +179,18 @@ export default function RecordDetailPage() {
           ))}
         </div>
       </section>
+
+      {model.nature === "stock_item" ? (
+        <section className="space-y-3">
+          <h2 className="font-heading text-lg font-medium text-foreground">Stock</h2>
+          <StockPanel
+            recordId={record.id}
+            organizationId={currentOrganizationId as string}
+            accessToken={accessToken as string}
+            currencyCode={currentOrganization?.currency_code}
+          />
+        </section>
+      ) : null}
 
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-medium text-foreground">Événements</h2>

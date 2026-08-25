@@ -286,7 +286,7 @@ Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, pu
 | --- | --- | --- |
 | Fondations | Next.js + design system clair/sombre + auth (Google et e-mail) + onboarding + coquille applicative | ✅ |
 | Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ✅ |
-| Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ⬜ |
+| Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ✅ |
 | Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ⬜ |
 | Abonnements/éditeur | Écrans de facturation, espace éditeur | ⬜ |
 
@@ -612,6 +612,38 @@ composant le documentait honnêtement plutôt que de le masquer (bannière
 passé 5 minutes). Une fois les routes manquantes ajoutées côté backend,
 l'interface a été rebranchée dessus plutôt que laissée à documenter une
 limitation qui n'existait plus.
+
+### 10.8 Frontend — module Stock (interface)
+
+Détail complet dans `frontend/README.md`. Un article de stock reste une fiche comme
+une autre — l'interface le traite ainsi plutôt que de dupliquer un second système :
+
+- **Panneau Stock intégré à la fiche** (`components/stock/stock-panel.tsx`), affiché
+  sur `models/[id]/records/[id]` uniquement quand `model.nature === "stock_item"` —
+  aucun écran séparé et désynchronisé du reste de la fiche. Première configuration
+  (unité, prix, suivi de lots, consignation, variantes déclinées sur jusqu'à 2
+  attributs) quand l'article n'est pas encore configuré (§7.1) ; au-delà, matrice
+  variante × dépôt avec seuils visibles et cellules signalées sous seuil, historique
+  des mouvements paginé côté serveur, panneau des lots proches de péremption (mêmes
+  codes couleur que le champ Échéance) et panneau de consignation quand pertinents.
+- **Saisie de mouvement** : un dialogue à quatre onglets (entrée/sortie/ajustement/
+  transfert) plutôt qu'un formulaire unique surchargé. L'ajustement — une correction
+  silencieuse de la quantité enregistrée — affiche systématiquement actuel/compté/écart
+  dans une confirmation avant tout envoi (§7.3 : justification obligatoire). Une sortie
+  FIFO multi-lots (§7.5) affiche explicitement "sur N lots" plutôt que de laisser croire
+  qu'un seul mouvement a été créé.
+- **Seuils** (§7.4) : le seuil global d'une variante et ses surcharges par dépôt sont
+  deux champs clairement séparés dans le même dialogue, jamais confondus — cohérent
+  avec la distinction déjà faite côté backend (`ThresholdSet.depot_id`).
+- **Dépôts** (`app/(app)/depots`) : liste/création/modification, accessible depuis la
+  barre latérale, le menu des modèles et la palette de commandes — pas une URL morte.
+
+Revue indépendante (agent dédié) : aucune incohérence avec les schémas backend,
+aucun risque de perte de données. Un seul écart mineur corrigé — la quantité "Actuel"
+affichée avant confirmation d'un ajustement pouvait provenir du cache jusqu'à 30
+secondes (`staleTime` par défaut du client React Query) plutôt que d'être toujours
+fraîche ; sans conséquence sur la donnée enregistrée (recalculée côté serveur dans
+tous les cas), corrigé par simple prudence avant confirmation d'une correction.
 
 ## 11. Manuel utilisateur
 
