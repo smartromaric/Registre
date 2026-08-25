@@ -272,7 +272,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | Lot | Contenu | Statut |
 | --- | --- | --- |
 | 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | ✅ |
-| 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ⬜ |
+| 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ✅ |
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ⬜ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ⬜ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
@@ -297,6 +297,44 @@ Non fait volontairement à ce stade (arrive avec les lots suivants) : réinitial
 mot de passe par e-mail, 2FA, flux d'acceptation d'invitation par e-mail — la mécanique
 d'invitation existe déjà côté données, l'envoi de l'e-mail arrivera avec le moteur de
 notifications du lot 1 plutôt que d'être dupliqué ici.
+
+### 10.2 Détail du lot 1 livré
+
+- **Moteur de fiches** (`app/dynamic_fields`, `app/models/model_definition.py`) : modèles
+  et champs configurables, tous les types de champs du §5.2, validation stricte contre
+  les définitions de champs (`validate_and_normalize`), unicité vérifiée à l'écriture.
+- **Fiches** (`app/models/record.py`) : structure hybride colonnes fixes + JSONB
+  (§15), statut configurable, affectation, événements datés (§6.2), archivage.
+- **Bibliothèque de modèles** : Véhicule, Personnel, Extincteur, Contrat activables en un
+  clic (`POST /organizations/{id}/templates/{key}/activate`) — copie propre, aucun lien
+  vivant vers le gabarit (§5.6). Stock de gaz et Vêtements rejoignent la bibliothèque au
+  lot 2, une fois le moteur de stock capable de les faire fonctionner réellement.
+- **Moteur d'échéances et d'alertes** (`app/alerts`) : index matérialisé des échéances
+  (`RecordDeadline`), calcul des paliers J-60/J-30/J-7/jour J puis relance périodique en
+  retard, écriture idempotente via `ON CONFLICT DO NOTHING` sur une contrainte
+  d'unicité — **vérifié par un test qui rejoue le balayage et constate zéro doublon**,
+  pas seulement affirmé (§8.2, §16.1).
+- **Notifications** (`app/notifications`) : intentions + porteurs interchangeables,
+  porteur "dans l'application" fonctionnel, porteur e-mail prêt (dépend d'un SMTP
+  configuré), porteur WhatsApp en stub explicite qui échoue clairement plutôt que de
+  prétendre envoyer (§8.6).
+- **Documents et photos** : téléversement lié à une fiche, URL signée à chaque lecture.
+
+**Correctif d'architecture découvert en testant le parcours réel** (pas seulement les
+tests automatisés, qui masquaient le problème en partageant une seule transaction) :
+la table `memberships` est celle qu'on interroge pour *établir* le contexte
+d'organisation — avec une politique RLS unique fondée sur l'organisation courante, cette
+requête de bootstrap ne pouvait jamais rien voir, y compris ses propres appartenances.
+Elle porte maintenant une politique de lecture dédiée (visible si l'organisation
+correspond au contexte courant **ou** si la ligne appartient à l'utilisateur courant),
+tandis que les écritures restent strictement cantonnées au contexte déjà établi — voir
+la migration `5799f8fae891` et `core/deps.py`.
+
+Non fait volontairement à ce stade : filtres/recherche avancée sur les fiches (lot 3),
+focalisation des tableaux de bord (lot 3), Celery Beat pour le balayage automatique
+nocturne (le moteur est prêt et idempotent ; le déclenchement quotidien automatique
+attend un environnement avec Redis provisionné — en attendant, `POST
+.../alerts/run-scan` permet un déclenchement manuel ou par cron externe).
 
 ## 11. Manuel utilisateur
 

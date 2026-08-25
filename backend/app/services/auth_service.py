@@ -135,10 +135,12 @@ class AuthService:
         )
         organization = await self.orgs.create(organization)
 
-        # L'organisation vient d'être créée : c'est le seul cas où le contexte RLS
-        # est positionné manuellement plutôt que par la dépendance get_org_context,
-        # puisqu'aucune appartenance ne pouvait encore exister pour l'établir.
-        # (Postgres n'accepte pas de paramètres liés dans SET LOCAL — voir core/deps.py.)
+        # L'organisation vient d'être créée : c'est le seul cas où le contexte
+        # d'organisation est positionné manuellement plutôt que par la dépendance
+        # get_org_context, puisqu'aucune appartenance ne pouvait encore exister
+        # pour l'établir. `current_user_id` est déjà positionné par get_current_user
+        # pour toute requête HTTP ; on le repositionne ici par défense, au cas où ce
+        # service serait un jour appelé hors de ce chemin (script, tâche planifiée).
         await self.db.execute(text(f"SET LOCAL app.current_org_id = '{organization.id}'"))
         await self.db.execute(text(f"SET LOCAL app.current_user_id = '{user.id}'"))
 

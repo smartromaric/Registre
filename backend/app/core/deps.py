@@ -33,6 +33,16 @@ async def get_current_user(
     user = await UserRepository(db).get(uuid.UUID(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Utilisateur introuvable ou désactivé.")
+
+    # Positionné dès l'authentification, pas seulement dans get_org_context : la
+    # table memberships doit rester lisible par son propre titulaire — sur toutes
+    # ses organisations — AVANT même qu'un contexte d'organisation soit choisi.
+    # C'est justement la requête qui sert à établir ce contexte (bootstrap) et à
+    # lister "mes organisations" (§4.4 : un utilisateur peut appartenir à
+    # plusieurs). Postgres n'acceptant pas de paramètres liés dans SET LOCAL, on
+    # interpole directement la valeur — sûr ici car `user.id` est un uuid.UUID
+    # typé, jamais une chaîne libre venant du client.
+    await db.execute(text(f"SET LOCAL app.current_user_id = '{user.id}'"))
     return user
 
 
@@ -49,12 +59,7 @@ async def get_org_context(
     if membership is None or not membership.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Vous n'appartenez pas à cette organisation.")
 
-    # Postgres n'accepte pas de paramètres liés dans SET LOCAL : on interpole donc
-    # directement la valeur. Sûr ici car organization_id/user.id sont des uuid.UUID
-    # typés (jamais une chaîne libre venant de l'utilisateur), dont la forme str()
-    # est garantie par la bibliothèque uuid (hex + tirets uniquement).
     await db.execute(text(f"SET LOCAL app.current_org_id = '{organization_id}'"))
-    await db.execute(text(f"SET LOCAL app.current_user_id = '{user.id}'"))
     return membership
 
 

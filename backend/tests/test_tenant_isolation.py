@@ -39,18 +39,39 @@ async def _create_org_with_admin(db_session, name: str) -> tuple[Organization, U
 
 
 async def test_rls_blocks_cross_organization_row_access(db_session):
-    org_a, _, _ = await _create_org_with_admin(db_session, "Org A")
+    org_a, user_a, _ = await _create_org_with_admin(db_session, "Org A")
     org_b, _, _ = await _create_org_with_admin(db_session, "Org B")
 
-    # On se replace explicitement dans le contexte de l'organisation A avant de lire :
-    # la ligne de l'organisation B existe bel et bien dans la même transaction,
-    # mais la politique RLS doit la rendre invisible.
+    # On se replace explicitement dans la situation réelle d'une requête : user_a,
+    # agissant dans le contexte de l'organisation A. La ligne de l'organisation B
+    # existe bel et bien dans la même transaction (memberships de user_b), mais ce
+    # n'est ni son organisation courante ni sa propre ligne : la politique RLS doit
+    # la rendre invisible.
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_a.id}'"))
     await db_session.execute(text(f"SET LOCAL app.current_org_id = '{org_a.id}'"))
     result = await db_session.execute(select(Membership))
     visible_org_ids = {row.organization_id for row in result.scalars().all()}
 
     assert org_a.id in visible_org_ids
     assert org_b.id not in visible_org_ids
+
+
+async def test_rls_lets_user_see_own_membership_without_org_context_yet(db_session):
+    """C'est la requête de bootstrap (`get_for_user_and_org` / "mes organisations",
+    cahier des charges §4.4) : elle doit pouvoir trouver l'appartenance d'un
+    utilisateur AVANT que le contexte d'organisation ne soit choisi — c'est
+    justement elle qui sert à l'établir.
+    """
+    org_a, user_a, _ = await _create_org_with_admin(db_session, "Org A")
+    _org_b, user_b, _ = await _create_org_with_admin(db_session, "Org B")
+
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_a.id}'"))
+    await db_session.execute(text("SET LOCAL app.current_org_id = ''"))
+    result = await db_session.execute(select(Membership))
+    visible = {row.user_id for row in result.scalars().all()}
+
+    assert user_a.id in visible
+    assert user_b.id not in visible
 
 
 async def test_api_blocks_access_to_foreign_organization(client):
