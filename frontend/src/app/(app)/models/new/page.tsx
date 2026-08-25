@@ -8,7 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { ArrowLeft, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, ShieldAlert } from "lucide-react";
 
 import { FieldDefinitionEditorDialog } from "@/components/fiches/field-definition-editor";
 import { ColorSwatchPicker, IconPicker } from "@/components/fiches/icon-color-picker";
@@ -46,8 +46,9 @@ type ModelFormValues = z.infer<typeof modelSchema>;
  * `lib/api/model-definitions.ts` et `staged-field-list.tsx`.
  */
 export default function NewModelPage() {
-  const { accessToken, currentOrganizationId } = useAuth();
+  const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
   const router = useRouter();
+  const isAdmin = currentOrganization?.my_role === "admin";
   const [icon, setIcon] = useState<string | null>("package");
   const [color, setColor] = useState<string | null>("#0E6E63");
   const [fields, setFields] = useState<FieldDefinitionCreate[]>([]);
@@ -92,6 +93,23 @@ export default function NewModelPage() {
       fields: fields.map((field, index) => ({ ...field, position: index })),
     };
     createMutation.mutate(payload);
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">Nouveau modèle</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Décrivez ce que votre organisation va suivre — aucun développement nécessaire (§5.1).
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          <ShieldAlert className="size-4 shrink-0" />
+          Cet écran est réservé aux administrateurs de l&apos;organisation.
+        </div>
+      </div>
+    );
   }
 
   return (

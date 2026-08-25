@@ -75,7 +75,9 @@ export function AppSidebar() {
           label="Bibliothèque"
           active={pathname === "/models/library"}
         />
-        <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} />
+        {isAdmin ? (
+          <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} />
+        ) : null}
         <SidebarLink href="/depots" icon={<Warehouse className="size-4 shrink-0" />} label="Dépôts" active={pathname === "/depots"} />
         {isAdmin ? (
           <SidebarLink
@@ -164,12 +166,14 @@ export function ModelsNavMenu() {
             Bibliothèque
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/models/new">
-            <Plus className="size-4" />
-            Nouveau modèle
-          </Link>
-        </DropdownMenuItem>
+        {isAdmin ? (
+          <DropdownMenuItem asChild>
+            <Link href="/models/new">
+              <Plus className="size-4" />
+              Nouveau modèle
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild>
           <Link href="/depots">
             <Warehouse className="size-4" />

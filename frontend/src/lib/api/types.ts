@@ -584,6 +584,10 @@ export interface StockLotOut {
 export type ConsignmentAction = "deliver_full" | "return_empty";
 
 export interface ConsignmentActionCreate {
+  // Comme les quatre types de mouvement (voir MovementCreate) : une resoumission
+  // réseau ne doit jamais doubler la quantité en circulation ni la caution
+  // perçue — voir PRODUCT.md §10.13, point 6.
+  client_operation_id?: string | null;
   variant_id: string;
   depot_id: string;
   action: ConsignmentAction;

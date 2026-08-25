@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { ArrowLeft, Layers, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Layers, Loader2, Plus, ShieldAlert } from "lucide-react";
 
 import { ExistingFieldList } from "@/components/fiches/existing-field-list";
 import { FieldDefinitionEditorDialog } from "@/components/fiches/field-definition-editor";
@@ -52,7 +52,8 @@ function toFormValues(model: ModelDefinitionOut): SettingsValues {
 
 export default function ModelSettingsPage() {
   const { modelId } = useParams<{ modelId: string }>();
-  const { accessToken, currentOrganizationId } = useAuth();
+  const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
+  const isAdmin = currentOrganization?.my_role === "admin";
   const queryKey = ["model-definition", currentOrganizationId, modelId];
 
   const modelQuery = useQuery({
@@ -60,6 +61,20 @@ export default function ModelSettingsPage() {
     queryFn: () => getModelDefinition(accessToken as string, currentOrganizationId as string, modelId),
     enabled: Boolean(accessToken && currentOrganizationId && modelId),
   });
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">Réglages du modèle</h1>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          <ShieldAlert className="size-4 shrink-0" />
+          Cet écran est réservé aux administrateurs de l&apos;organisation.
+        </div>
+      </div>
+    );
+  }
 
   if (modelQuery.isLoading) {
     return (

@@ -1104,6 +1104,73 @@ transaction par test, jamais commitée) ne permet pas d'exercer une vraie
 concurrence entre deux connexions dans la suite automatisée ; la preuve reste
 donc le test jetable exécuté puis supprimé, pas un test permanent.
 
+### 10.14 Chasse au bug dédiée (frontend, 2026-08-25) : cinq problèmes trouvés et corrigés
+
+Même exercice que le §10.13, côté frontend cette fois — chaque candidat vérifié en
+lisant le code réel plutôt que supposé. Cinq corrections :
+
+1. **`ConsignmentPanel` n'envoyait jamais de `client_operation_id`** —
+   contrairement aux quatre formulaires de mouvement (`movement-dialog.tsx`), qui
+   en génèrent un à chaque soumission. Rouvrait exactement le bug corrigé côté
+   serveur le jour même (§10.13, point 6) : une resoumission réseau après une
+   action de consignation doublait la quantité en circulation et la caution
+   perçue, sans aucune protection puisque le serveur ne peut détecter une
+   resoumission qu'il ne reçoit jamais. Corrigé : `ConsignmentActionCreate`
+   porte désormais le champ, généré à chaque appel comme pour les mouvements.
+2. **Perte silencieuse et définitive d'une opération hors-ligne** —
+   `lib/offline/sync-engine.ts` : quand le rafraîchissement du jeton d'accès
+   échouait après un 401 (cookie de rafraîchissement lui-même expiré —
+   réaliste après une longue coupure), l'opération en cours était classée
+   "failed" au lieu de "pending", alors que le problème est celui de la
+   session entière, pas de cette opération précise. Combiné à un autre
+   correctif du même jour (exclure "failed" de toute relecture automatique,
+   pour arrêter le spam de notifications sur une opération invalide), cela
+   aurait perdu pour de bon une fiche créée ou modifiée hors-ligne dès que la
+   synchronisation tombait sur une session expirée — précisément le scénario
+   que toute la fonctionnalité doit couvrir. Corrigé : cette opération reste
+   "pending", comme les opérations suivantes jamais tentées, pour la prochaine
+   passe une fois reconnecté.
+3. **Le tableau de bord gardait le filtre de l'organisation précédente après un
+   changement d'organisation** — `explicitScope` (modèle/dépôt/site focalisés)
+   est un état local qui ne se réinitialisait jamais au changement
+   d'organisation (la page ne remonte pas). Un `model_definition_id`/`depot_id`
+   de l'organisation A survivait à la bascule vers B, sans correspondance côté
+   B : ni le tableau de bord épinglé de B ni la vue "Tout" ne reprenaient la
+   main tant que l'utilisateur ne touchait pas un filtre à la main. Corrigé en
+   séparant la page en une coquille fine (`AppHomePage`) qui force un
+   remontage complet via `key={currentOrganizationId}` — même principe déjà
+   utilisé ailleurs dans ce même fichier (`key={siteFieldVersion}`) et dans
+   `models/[modelId]/settings/page.tsx` (`key={model.id}`), pas un nouvel
+   effet de resynchronisation.
+4. **Le gabarit d'affichage d'une devise éditeur était ignoré presque
+   partout** — le catalogue de devises de la plateforme n'est pas validé ISO
+   4217 (l'éditeur peut créer n'importe quel code à trois lettres avec son
+   propre gabarit, ex. `"{amount} FCFA"` — voir §10.10). Seul l'écran
+   Abonnement résolvait la vraie devise et respectait son gabarit
+   (`formatWithCurrencyFormat`) ; tous les autres affichages de montant
+   (rendu générique du type de champ Montant, vue Stock d'un article, panneau
+   de consignation, trois des quatre vues de tableau de bord) appelaient
+   `formatAmount(valeur, code)`, une simple déduction `Intl.NumberFormat` —
+   silencieuse mais fausse pour tout code non-ISO (le code brut s'affichait en
+   pseudo-symbole au lieu du gabarit configuré). Corrigé par un nouveau hook
+   partagé (`lib/use-currency-format.ts`) qui résout la vraie devise via
+   `GET /catalog/currencies` (déjà ouvert à tout utilisateur connecté, une
+   seule requête partagée par tout l'appli via le cache React Query) avant
+   d'appliquer `formatWithCurrencyFormat` ; `formatAmount` — désormais sans
+   appelant correct possible — a été retiré plutôt que laissé comme piège pour
+   un futur appel.
+5. **Les pages de création/réglages de modèle n'avaient aucun garde-fou côté
+   client** — contrairement à `organisation/membres`, `organisation/conflits`
+   et `abonnement`, qui affichent tous un message explicite avant de rendre le
+   moindre formulaire réservé à l'ADMIN, `/models/new` et
+   `/models/[modelId]/settings` rendaient le formulaire complet à n'importe
+   quel rôle — la seule protection réelle restait le 403 serveur
+   (`Action.MANAGE_MODELS`, déjà correct), découvert seulement au clic sur
+   "Enregistrer". Corrigé par le même garde que les autres écrans réservés, et
+   le lien "Nouveau modèle" de la navigation masqué pour les non-administrateurs.
+
+Vérifié par `npm run lint` et `npm run build` après chaque correctif.
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans

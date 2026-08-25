@@ -46,7 +46,24 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/roles";
 
+/**
+ * Coquille fine : ne porte aucun état, seulement le `key={currentOrganizationId}`
+ * qui force un remontage complet de `DashboardContent` à chaque changement
+ * d'organisation — même principe que `key={siteFieldVersion}`/`key={model.id}`
+ * plus bas et dans `models/[modelId]/settings/page.tsx`. Sans ce remontage,
+ * `explicitScope` (modèle/dépôt/site focalisés) survivait au changement
+ * d'organisation : le tableau de bord de l'organisation B s'affichait filtré
+ * sur un `model_definition_id`/`depot_id` de l'organisation A, invisible et
+ * sans correspondance côté B — ni le tableau de bord épinglé de B ni la vue
+ * "Tout" ne reprenaient jamais la main tant que l'utilisateur ne touchait pas
+ * un filtre à la main.
+ */
 export default function AppHomePage() {
+  const { currentOrganizationId } = useAuth();
+  return <DashboardContent key={currentOrganizationId ?? "none"} />;
+}
+
+function DashboardContent() {
   const reduceMotion = useReducedMotion();
   const { accessToken, currentOrganizationId, currentOrganization, user } = useAuth();
   const queryClient = useQueryClient();

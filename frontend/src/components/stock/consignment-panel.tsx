@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { getConsignmentSummary, recordConsignmentAction } from "@/lib/api/stock";
 import type { ArticleVariantOut, DepotOut } from "@/lib/api/types";
-import { formatAmount } from "@/lib/format";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 import { variantLabel } from "@/lib/stock-format";
 
 export interface ConsignmentPanelProps {
@@ -51,6 +51,7 @@ export function ConsignmentPanel({ organizationId, accessToken, variants, depots
   const [quantity, setQuantity] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const queryClient = useQueryClient();
+  const formatMoney = useCurrencyFormat();
 
   const summaryQueryKey = ["consignment-summary", organizationId, variantId, depotId];
   const summaryQuery = useQuery({
@@ -62,6 +63,7 @@ export function ConsignmentPanel({ organizationId, accessToken, variants, depots
   const actionMutation = useMutation({
     mutationFn: (action: "deliver_full" | "return_empty") =>
       recordConsignmentAction(accessToken, organizationId, {
+        client_operation_id: crypto.randomUUID(),
         variant_id: variantId,
         depot_id: depotId,
         action,
@@ -132,7 +134,7 @@ export function ConsignmentPanel({ organizationId, accessToken, variants, depots
           <StatTile label="Pleines (en stock)" value={summaryQuery.data.full_count} />
           <StatTile label="Vides en dépôt" value={summaryQuery.data.empty_count} />
           <StatTile label="En circulation" value={summaryQuery.data.in_circulation_count} />
-          <StatTile label="Consignes encaissées" value={formatAmount(summaryQuery.data.deposit_amount_collected, currencyCode)} />
+          <StatTile label="Consignes encaissées" value={formatMoney(summaryQuery.data.deposit_amount_collected, currencyCode)} />
         </div>
       ) : null}
 

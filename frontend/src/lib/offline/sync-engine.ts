@@ -135,10 +135,16 @@ export async function runSyncPass(
             return;
           }
         }
-        // Le jeton est mort et le rafraîchissement a échoué : inutile de
-        // brûler les opérations suivantes avec un jeton qu'on sait invalide —
-        // elles restent "pending" pour la prochaine passe (prochaine connexion).
-        await updateOperationStatus(op.id, "failed", err.message);
+        // Le jeton est mort et le rafraîchissement a échoué (cookie de
+        // rafraîchissement lui-même expiré/invalide, session entière à
+        // reconstruire) : ce n'est pas cette opération précise qui est en
+        // cause — TOUTE la file échouerait pareil tant qu'une session valide
+        // n'est pas rétablie. La classer "failed" l'aurait perdue pour de bon
+        // (désormais exclues de la relecture, voir plus haut) alors qu'elle
+        // n'a rien d'invalide ; elle reste "pending", comme les opérations
+        // suivantes jamais tentées, pour la prochaine passe une fois
+        // reconnecté.
+        await updateOperationStatus(op.id, "pending");
         return;
       }
 

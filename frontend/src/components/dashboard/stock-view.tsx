@@ -10,7 +10,7 @@ import type { DrilldownKind } from "@/components/dashboard/drilldown-dialog";
 import { MovementsChart } from "@/components/dashboard/movements-chart";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import type { StockIndicators } from "@/lib/api/types";
-import { formatAmount } from "@/lib/format";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 
 export interface StockDashboardViewProps {
   data: StockIndicators;
@@ -22,6 +22,7 @@ export interface StockDashboardViewProps {
 const MAX_BAR_ROWS = 12;
 
 export function StockDashboardView({ data, currencyCode, periodLabel, onOpenDrilldown }: StockDashboardViewProps) {
+  const formatMoney = useCurrencyFormat();
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -44,7 +45,7 @@ export function StockDashboardView({ data, currencyCode, periodLabel, onOpenDril
           onClick={() => onOpenDrilldown("expiring")}
         />
         {data.stock_value != null ? (
-          <StatTile label="Valeur du stock" value={formatAmount(data.stock_value, currencyCode)} />
+          <StatTile label="Valeur du stock" value={formatMoney(data.stock_value, currencyCode)} />
         ) : null}
         <StatTile
           label={`Entrées · ${periodLabel}`}

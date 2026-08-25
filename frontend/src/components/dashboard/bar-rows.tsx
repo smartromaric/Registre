@@ -15,7 +15,8 @@ export interface BarDatum {
   label: string;
   value: number;
   /** Texte affiché à droite — par défaut `value` formaté en fr-FR. Utile pour
-   * un montant (`formatAmount`) plutôt qu'un entier brut. */
+   * un montant (`useCurrencyFormat`, voir `lib/use-currency-format.ts`) plutôt
+   * qu'un entier brut. */
   display?: string;
 }
 

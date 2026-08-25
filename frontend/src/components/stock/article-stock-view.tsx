@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { listDepots } from "@/lib/api/stock";
 import type { ArticleWithVariantsOut } from "@/lib/api/types";
-import { formatAmount } from "@/lib/format";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 
 export interface ArticleStockViewProps {
   recordId: string;
@@ -45,6 +45,7 @@ export function ArticleStockView({
 }: ArticleStockViewProps) {
   const { config, variants } = article;
   const queryClient = useQueryClient();
+  const formatMoney = useCurrencyFormat();
 
   const depotsQuery = useQuery({
     queryKey: ["depots", organizationId],
@@ -84,8 +85,8 @@ export function ArticleStockView({
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {config.unit ? <span>Unité : {config.unit}</span> : null}
-            {config.purchase_price != null ? <span>Achat : {formatAmount(config.purchase_price, currencyCode)}</span> : null}
-            {config.sale_price != null ? <span>Vente : {formatAmount(config.sale_price, currencyCode)}</span> : null}
+            {config.purchase_price != null ? <span>Achat : {formatMoney(config.purchase_price, currencyCode)}</span> : null}
+            {config.sale_price != null ? <span>Vente : {formatMoney(config.sale_price, currencyCode)}</span> : null}
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline">

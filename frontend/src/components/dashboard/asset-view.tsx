@@ -8,7 +8,7 @@ import { BarRows, ChartSection } from "@/components/dashboard/bar-rows";
 import type { DrilldownKind } from "@/components/dashboard/drilldown-dialog";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import type { AssetIndicators } from "@/lib/api/types";
-import { formatAmount } from "@/lib/format";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 
 export interface AssetDashboardViewProps {
   data: AssetIndicators;
@@ -25,6 +25,7 @@ export function AssetDashboardView({
   periodLabel,
   onOpenDrilldown,
 }: AssetDashboardViewProps) {
+  const formatMoney = useCurrencyFormat();
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -52,7 +53,7 @@ export function AssetDashboardView({
           onClick={() => onOpenDrilldown("upcoming")}
         />
         {data.event_cost_total != null ? (
-          <StatTile label={`Coût des événements · ${periodLabel}`} value={formatAmount(data.event_cost_total, currencyCode)} />
+          <StatTile label={`Coût des événements · ${periodLabel}`} value={formatMoney(data.event_cost_total, currencyCode)} />
         ) : null}
       </div>
 
@@ -80,7 +81,7 @@ export function AssetDashboardView({
               key: m.month,
               label: formatMonth(m.month),
               value: m.amount,
-              display: formatAmount(m.amount, currencyCode),
+              display: formatMoney(m.amount, currencyCode),
             }))}
             barClassName="bg-primary"
             emptyMessage="Aucun événement chiffré sur cette période."

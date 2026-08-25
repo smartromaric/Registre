@@ -7,7 +7,7 @@
 import { StatTile } from "@/components/dashboard/stat-tile";
 import type { DrilldownKind } from "@/components/dashboard/drilldown-dialog";
 import type { AttentionCounters, SummaryCounters } from "@/lib/api/types";
-import { formatAmount } from "@/lib/format";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 
 export interface GlobalDashboardViewProps {
   attention: AttentionCounters;
@@ -17,6 +17,7 @@ export interface GlobalDashboardViewProps {
 }
 
 export function GlobalDashboardView({ attention, summary, currencyCode, onOpenDrilldown }: GlobalDashboardViewProps) {
+  const formatMoney = useCurrencyFormat();
   return (
     <div className="flex flex-col gap-6">
       <section>
@@ -64,7 +65,7 @@ export function GlobalDashboardView({ attention, summary, currencyCode, onOpenDr
           {summary.total_stock_value != null ? (
             <StatTile
               label="Valeur du stock"
-              value={formatAmount(summary.total_stock_value, currencyCode)}
+              value={formatMoney(summary.total_stock_value, currencyCode)}
               caption="Tous articles confondus"
             />
           ) : null}

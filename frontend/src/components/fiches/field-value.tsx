@@ -41,6 +41,7 @@ import type {
 } from "@/lib/api/types";
 import { computeDueDateStatus, DUE_DATE_TONE_CLASSES } from "@/lib/due-date-status";
 import { formatFileSize } from "@/lib/documents-cache";
+import { useCurrencyFormat } from "@/lib/use-currency-format";
 import { cn } from "@/lib/utils";
 
 export interface FieldValueViewProps {
@@ -64,6 +65,8 @@ export function FieldValueView({
   compact = false,
   currencyCode,
 }: FieldValueViewProps) {
+  const formatMoney = useCurrencyFormat();
+
   if (value === null || value === undefined || value === "") {
     return EMPTY;
   }
@@ -95,15 +98,7 @@ export function FieldValueView({
       );
 
     case "amount":
-      return (
-        <span>
-          {new Intl.NumberFormat("fr-FR", {
-            style: currencyCode ? "currency" : "decimal",
-            currency: currencyCode,
-            maximumFractionDigits: 2,
-          }).format(Number(value))}
-        </span>
-      );
+      return <span>{formatMoney(Number(value), currencyCode)}</span>;
 
     case "date":
       return <span>{formatShortDate(String(value))}</span>;
