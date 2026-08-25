@@ -517,3 +517,194 @@ export interface ConsignmentSummaryOut {
   in_circulation_count: number;
   deposit_amount_collected: number;
 }
+
+// =========================================================================
+// Module Tableaux de bord (cahier des charges §10) — mode ADDITIF, ne pas
+// toucher aux types ci-dessus. Miroir exact de backend/app/schemas/dashboard.py.
+// =========================================================================
+
+// --- backend/app/models/dashboard.py:DashboardPeriod -------------------------------
+export type DashboardPeriod = "7d" | "30d" | "90d" | "current_year";
+
+export interface DashboardScope {
+  model_definition_id: string | null;
+  model_name: string | null;
+  nature: RecordNature | null;
+  depot_id: string | null;
+  depot_name: string | null;
+  site: string | null;
+  period: DashboardPeriod;
+  period_start: string; // AAAA-MM-JJ
+  period_end: string; // AAAA-MM-JJ
+}
+
+/** §10.1 : les quatre indicateurs "qu'est-ce qui demande mon attention
+ * aujourd'hui", dans cet ordre. Seulement pour le périmètre global — §10.2
+ * les remplace par des indicateurs propres à la nature du modèle focalisé. */
+export interface AttentionCounters {
+  overdue_deadlines_count: number;
+  upcoming_deadlines_count: number;
+  understock_articles_count: number;
+  expiring_lots_count: number;
+}
+
+/** Compteurs de synthèse globaux, affichés après les indicateurs d'attention. */
+export interface SummaryCounters {
+  total_records: number;
+  /** `null` si l'utilisateur n'a pas le droit de voir les montants (§4.2) —
+   * ne jamais afficher "0" dans ce cas, omettre la tuile côté UI. */
+  total_stock_value: number | null;
+}
+
+export interface MonthCount {
+  month: string; // "2026-06"
+  count: number;
+}
+
+export interface MonthAmount {
+  month: string;
+  amount: number;
+}
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+/** §10.3, ligne "Actif suivi". */
+export interface AssetIndicators {
+  fiche_count: number;
+  status_breakdown: StatusCount[];
+  overdue_deadlines_count: number;
+  upcoming_deadlines_count: number;
+  event_cost_total: number | null;
+  upcoming_deadlines_by_month: MonthCount[];
+  event_cost_by_month: MonthAmount[] | null;
+}
+
+export interface VariantQuantity {
+  variant_id: string;
+  label: string;
+  quantity: number;
+}
+
+export interface DepotQuantity {
+  depot_id: string;
+  depot_name: string;
+  quantity: number;
+}
+
+export interface DayMovements {
+  day: string; // AAAA-MM-JJ
+  entries_quantity: number;
+  exits_quantity: number;
+}
+
+/** §10.3, ligne "Article de stock". */
+export interface StockIndicators {
+  total_quantity: number;
+  understock_articles_count: number;
+  stock_value: number | null;
+  entries_quantity_period: number;
+  exits_quantity_period: number;
+  expiring_lots_count: number;
+  stock_by_variant: VariantQuantity[];
+  stock_by_depot: DepotQuantity[];
+  movements_by_day: DayMovements[];
+}
+
+export interface DashboardOut {
+  scope: DashboardScope;
+  attention: AttentionCounters | null;
+  summary: SummaryCounters | null;
+  asset: AssetIndicators | null;
+  stock: StockIndicators | null;
+}
+
+// --- listes "cliquables" derrière chaque indicateur (§10.5) -------------------------
+
+export interface DeadlineHitOut {
+  record_id: string;
+  model_definition_id: string;
+  model_name: string;
+  record_title: string;
+  field_key: string;
+  field_label: string;
+  due_date: string; // AAAA-MM-JJ
+  days_overdue: number; // négatif si l'échéance n'est pas encore atteinte
+}
+
+export interface UnderstockHitOut {
+  record_id: string;
+  model_name: string;
+  record_title: string;
+  variant_id: string;
+  variant_label: string;
+  depot_id: string;
+  depot_name: string;
+  quantity: number;
+  threshold: number;
+}
+
+export interface ExpiringLotHitOut {
+  record_id: string;
+  model_name: string;
+  record_title: string;
+  variant_id: string;
+  variant_label: string;
+  depot_id: string;
+  depot_name: string;
+  lot_number: string;
+  expiry_date: string; // AAAA-MM-JJ
+  remaining_quantity: number;
+}
+
+export interface DeadlineHitListOut {
+  items: DeadlineHitOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UnderstockHitListOut {
+  items: UnderstockHitOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ExpiringLotHitListOut {
+  items: ExpiringLotHitOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// --- tableaux de bord enregistrés et épinglés (§10.4) -------------------------------
+
+export interface SavedDashboardCreate {
+  name: string;
+  model_definition_id?: string | null;
+  depot_id?: string | null;
+  site?: string | null;
+  period?: DashboardPeriod;
+}
+
+export interface SavedDashboardUpdate {
+  name?: string | null;
+  model_definition_id?: string | null;
+  depot_id?: string | null;
+  site?: string | null;
+  period?: DashboardPeriod | null;
+  is_pinned?: boolean | null;
+}
+
+export interface SavedDashboardOut {
+  id: string;
+  name: string;
+  model_definition_id: string | null;
+  depot_id: string | null;
+  site: string | null;
+  period: DashboardPeriod;
+  is_pinned: boolean;
+}

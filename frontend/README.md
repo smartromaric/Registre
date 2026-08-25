@@ -132,6 +132,25 @@ Intégration **réelle**, pas une simulation : le bouton "Continuer avec Google"
   `listLots`) — jamais tout chargé puis découpé côté client, l'historique d'un dépôt
   actif peut grossir sans limite.
 
+## Choix techniques tranchés — tableaux de bord
+
+- **La page d'accueil EST le tableau de bord** (`app/(app)/page.tsx`) — pas un écran
+  séparé accessible depuis un lien, conformément au §10.1 du cahier des charges.
+- **Périmètre dérivé** (`explicitScope ?? tableau de bord épinglé ?? "Tout"`, un
+  `useMemo`) plutôt que recopié dans un état local par un `useEffect` — même principe
+  que `currentOrganizationId` dans `lib/auth/auth-context.tsx`. La requête du tableau
+  de bord attend explicitement que le tableau de bord épinglé soit résolu
+  (`enabled: ... && !pinnedQuery.isLoading`) pour ne jamais afficher "Tout" une
+  fraction de seconde avant de basculer sur le bon périmètre.
+- **Pas de bibliothèque de graphiques** : les séries (échéances par mois, mouvements
+  par jour, stock par variante/dépôt) se rendent en rangées de barres Tailwind
+  simples (`components/dashboard/bar-rows.tsx`), fidèles à la maquette du cahier des
+  charges — le volume de données ne justifie pas une dépendance supplémentaire.
+- **Indicateurs cliquables** (`components/dashboard/stat-tile.tsx`) : un indicateur
+  n'est cliquable que s'il est adossé à une route de liste réelle
+  (`lib/api/dashboards.ts`) — jamais un lien vers une liste qui ne correspondrait pas
+  exactement au chiffre affiché.
+
 ## Choix techniques tranchés — moteur de fiches
 
 - **Rendu de champ générique** (`components/fiches/field-renderer.tsx` en saisie,
@@ -176,10 +195,12 @@ src/
                          constructeur de modèle, éditeur/liste de champs, documents
     stock/                panneau Stock d'une fiche article, saisie de mouvement,
                          seuils, lots, consignation, dépôts
+    dashboard/            tuiles d'indicateurs, rangées de barres, bandeau de
+                         focalisation, listes cliquables, tableaux de bord enregistrés
     data-table.tsx, state-views.tsx, app-nav.tsx, command-palette.tsx
   lib/
     api/                client HTTP par domaine (auth, organizations, model-definitions,
-                         records, documents, stock) — chaque fonction lève `ApiError`
+                         records, documents, stock, dashboards) — chaque fonction lève `ApiError`
     auth/               AuthProvider (contexte React) + gardes de route
     session.ts          cookie httpOnly (refresh token) — server-only
     countries.ts, sectors.ts, roles.ts, format.ts, utils.ts, due-date-status.ts, ...
@@ -202,10 +223,12 @@ src/
 - **Module Stock** : dépôts, configuration d'article (unité, prix, lots, consignation,
   variantes), saisie de mouvement (entrée/sortie/ajustement/transfert), seuils
   globaux et par dépôt, historique paginé, lots et péremption, consignation.
+- **Tableaux de bord** : page d'accueil de l'application. Vue globale (indicateurs
+  d'attention + synthèse), focalisation par modèle avec indicateurs propres à sa
+  nature, filtres dépôt/site/période, listes cliquables derrière chaque indicateur
+  d'anomalie, tableaux de bord enregistrés et épinglés comme page d'accueil.
 
 **Pas fait (hors périmètre à ce stade, volontairement)**
-- Tableaux de bord — vue globale puis focalisable par modèle (cahier des charges §10.2) ;
-  le backend est prêt (PRODUCT.md §10.4), l'écran reste à construire.
 - Écrans d'abonnement/espace éditeur.
 - Mode hors-ligne (PWA, lot 5).
 - Réinitialisation de mot de passe, 2FA, acceptation d'invitation par e-mail (pas encore

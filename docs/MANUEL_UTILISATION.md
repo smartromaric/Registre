@@ -14,7 +14,8 @@
 5. [Comprendre le champ Échéance et les alertes](#5-comprendre-le-champ-échéance-et-les-alertes)
 6. [Gérer un stock](#6-gérer-un-stock)
 7. [Rechercher, filtrer, exporter et importer](#7-rechercher-filtrer-exporter-et-importer)
-8. [Votre abonnement](#8-votre-abonnement)
+8. [Le tableau de bord](#8-le-tableau-de-bord)
+9. [Votre abonnement](#9-votre-abonnement)
 
 ---
 
@@ -177,7 +178,33 @@ vos clients : « sortie pleine » (une bouteille pleine part chez un client) et
   signale le reste — vous ne perdez jamais 200 lignes correctes à cause de 3
   fautives. Le fichier doit être un CSV, les dates au format AAAA-MM-JJ.
 
-## 8. Votre abonnement
+## 8. Le tableau de bord
+
+C'est la page qui s'ouvre en arrivant sur l'application : elle répond à une
+seule question, « qu'est-ce qui demande mon attention aujourd'hui ? ». Vous y
+trouvez, dans cet ordre, les échéances en retard, celles des 30 prochains
+jours, les articles sous seuil et les lots proches de la péremption, tous
+modèles confondus — puis, en dessous, quelques compteurs généraux.
+
+Cliquez sur un de ces quatre chiffres : la liste exacte qui le compose
+s'ouvre, jamais juste un nombre sans rien derrière.
+
+**Se concentrer sur un seul modèle** — en haut de la page, un bandeau propose
+« Tout » puis chacun de vos modèles actifs. Cliquez sur « Véhicules » (par
+exemple) : toute la page se recalcule pour ne montrer que ce qui concerne les
+véhicules, avec des indicateurs différents de la vue globale — nombre de
+fiches, répartition par statut, échéances, coût des interventions pour un
+actif suivi ; quantité disponible, articles sous seuil, entrées/sorties pour
+un article de stock. Une fois un modèle sélectionné, vous pouvez en plus
+restreindre à un dépôt (stock) ou à un site (actifs), et à une période (7
+jours, 30 jours, 90 jours, année en cours).
+
+**Enregistrer et épingler** — un périmètre qui vous sert souvent (« Parc
+Douala », « Gaz — dépôt Bonabéri ») se nomme et s'enregistre d'un clic ;
+épinglez-le pour qu'il devienne votre page d'accueil personnelle la prochaine
+fois que vous ouvrez l'application.
+
+## 9. Votre abonnement
 
 Votre essai gratuit dure 14 jours à partir de l'inscription. Un administrateur
 peut à tout moment :

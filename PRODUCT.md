@@ -287,7 +287,7 @@ Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, pu
 | Fondations | Next.js + design system clair/sombre + auth (Google et e-mail) + onboarding + coquille applicative | ✅ |
 | Fiches | Constructeur de modèles, formulaires dynamiques, liste/détail de fiche, bibliothèque de modèles | ✅ |
 | Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ✅ |
-| Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ⬜ |
+| Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ✅ |
 | Abonnements/éditeur | Écrans de facturation, espace éditeur | ⬜ |
 
 Détail de ce qui est fait/pas fait dans `frontend/README.md`.
@@ -644,6 +644,48 @@ affichée avant confirmation d'un ajustement pouvait provenir du cache jusqu'à 
 secondes (`staleTime` par défaut du client React Query) plutôt que d'être toujours
 fraîche ; sans conséquence sur la donnée enregistrée (recalculée côté serveur dans
 tous les cas), corrigé par simple prudence avant confirmation d'une correction.
+
+### 10.9 Frontend — tableaux de bord (interface)
+
+Détail complet dans `frontend/README.md`. Remplace la coquille de page d'accueil du
+lot 0 par le vrai tableau de bord — c'est la page `/` de l'application, pas un écran
+secondaire, conformément au §10.1 (« qu'est-ce qui demande mon attention
+aujourd'hui »).
+
+- **Bandeau de focalisation** (§10.2) : pastilles « Tout » + une par modèle actif.
+  Changer de modèle recalcule entièrement les indicateurs plutôt que de simplement
+  filtrer une liste — la vue globale (attention + synthèse) laisse place aux
+  indicateurs propres à la nature du modèle (§10.3), avec les filtres dépôt/site/
+  période qui n'apparaissent qu'une fois un modèle focalisé.
+- **Les deux règles de conception du §10.5, appliquées structurellement** : chaque
+  indicateur adossé à une route de liste (échéances en retard/à venir, sous seuil,
+  péremption) est cliquable jusqu'au niveau du composant `StatTile` — impossible d'en
+  afficher un sans gestionnaire de clic par erreur ; un indicateur sans route de liste
+  derrière (compteurs agrégés seuls, ex. valeur du stock) reste volontairement non
+  cliquable plutôt que de mener vers une liste qui ne correspondrait pas exactement
+  au chiffre affiché. Une tonalité de couleur ne s'affiche jamais seule : `StatTile`
+  exige systématiquement un mot à côté.
+- **Périmètre dérivé, pas synchronisé par effet** : le périmètre effectif de la page
+  (`explicitScope ?? tableau de bord épinglé ?? "Tout"`) suit exactement le même
+  principe que `currentOrganizationId` (auth, lot 0) — un `useMemo`, jamais un
+  `useEffect` qui recopierait une réponse serveur dans un état local. La requête
+  principale attend explicitement que le tableau de bord épinglé soit connu avant de
+  partir, pour ne jamais afficher "Tout" une fraction de seconde puis basculer.
+- **Graphiques** : simples rangées de barres en CSS (libellé + piste + remplissage
+  proportionnel + nombre), fidèles à la maquette du cahier des charges — aucune
+  bibliothèque de graphiques ajoutée, le volume de données (buckets mensuels,
+  mouvements sur au plus 90 jours) ne le justifie pas.
+- **Tableaux de bord enregistrés et épinglés** (§10.4) : enregistrer le périmètre
+  courant sous un nom, les retrouver, épingler l'un d'eux comme page d'accueil.
+
+**Correctif appliqué après revue indépendante** : la liste "cliquable" des échéances
+à venir calculait sa tonalité de couleur à partir de `days_overdue` seul (toujours
+négatif ou nul pour cette liste par construction) — une branche du calcul n'était
+donc jamais atteinte, et toute échéance à venir affichait la même tonalité
+"urgent", qu'elle tombe demain ou dans 29 jours, perdant la graduation que
+`computeDueDateStatus` applique partout ailleurs dans l'application. Corrigé en
+réutilisant directement cette même fonction partagée plutôt qu'un calcul dupliqué
+et incomplet à partir d'un champ qui ne porte pas assez d'information à lui seul.
 
 ## 11. Manuel utilisateur
 
