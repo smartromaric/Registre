@@ -6,7 +6,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, String, UniqueConstraint, Uui
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, OrgScopedMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, OrgScopedMixin, UUIDPrimaryKeyMixin, utcnow
 
 
 def _str_enum_column(enum_cls: type[enum.Enum], name: str):
@@ -52,6 +52,6 @@ class Alert(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=utcnow
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -7,7 +7,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, OrgScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, OrgScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin, utcnow
 
 
 def _str_enum_column(enum_cls: type[enum.Enum], name: str):
@@ -147,7 +147,7 @@ class StockLevel(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
     depot_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("depots.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=utcnow
     )
 
 
@@ -187,5 +187,5 @@ class ConsignmentLevel(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
     in_circulation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     deposit_amount_collected: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=utcnow
     )

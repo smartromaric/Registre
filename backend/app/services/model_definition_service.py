@@ -7,9 +7,22 @@ from app.models.membership import Membership
 from app.models.model_definition import FieldDefinition, ModelDefinition
 from app.models.user import User
 from app.repositories.model_definition import ModelDefinitionRepository
-from app.schemas.model_definition import FieldDefinitionCreate, ModelDefinitionCreate, ModelDefinitionUpdate
+from app.schemas.model_definition import (
+    FieldDefinitionCreate,
+    FieldDefinitionUpdate,
+    ModelDefinitionCreate,
+    ModelDefinitionUpdate,
+)
 from app.services.audit_service import AuditService
 from app.services.organization_service import PermissionDeniedError
+
+
+class FieldNotFoundError(Exception):
+    pass
+
+
+class FieldInUseError(Exception):
+    pass
 
 
 def _build_field(
@@ -151,3 +164,112 @@ class ModelDefinitionService:
             new_value=changes,
         )
         return model
+
+    async def update_field(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        actor: User,
+        actor_membership: Membership,
+        model: ModelDefinition,
+        field_id: uuid.UUID,
+        payload: FieldDefinitionUpdate,
+    ) -> FieldDefinition:
+        """Ne permet pas de changer `key` ni `field_type` : les fiches déjà
+        écrites portent leurs valeurs sous cette clé et sous cette forme
+        (cahier des charges §5.2) — les renommer ou les retyper après coup
+        romprait silencieusement les fiches existantes. Renommer le libellé
+        affiché (`label`) reste libre, c'est ce que voit l'utilisateur.
+        """
+        if not role_can(actor_membership.role, Action.MANAGE_MODELS):
+            raise PermissionDeniedError("Seul un administrateur peut modifier un champ.")
+        field = self._get_field(model, field_id)
+
+        changes = payload.model_dump(exclude_unset=True)
+        old_value = {k: getattr(field, k) for k in changes}
+        for key, value in changes.items():
+            if key == "select_options" and value is not None:
+                value = [o if isinstance(o, dict) else o.model_dump() for o in value]
+            setattr(field, key, value)
+        await self.db.flush()
+
+        await self.audit.record(
+            organization_id=organization_id,
+            actor_user_id=actor.id,
+            action="field_definition.update",
+            entity_type="field_definition",
+            entity_id=field.id,
+            old_value=old_value,
+            new_value=changes,
+        )
+        return field
+
+    async def delete_field(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        actor: User,
+        actor_membership: Membership,
+        model: ModelDefinition,
+        field_id: uuid.UUID,
+    ) -> None:
+        """Cahier des charges §5.6 : « ajoutez, retirez ou renommez des champs ».
+        Les fiches existantes gardent la valeur sous cette clé dans leur JSONB —
+        elle devient simplement inerte, jamais une perte de données silencieuse
+        au sens strict (l'historique d'audit de la fiche la conserve).
+        """
+        if not role_can(actor_membership.role, Action.MANAGE_MODELS):
+            raise PermissionDeniedError("Seul un administrateur peut supprimer un champ.")
+        field = self._get_field(model, field_id)
+        if model.title_field_key == field.key:
+            raise FieldInUseError("Ce champ sert de titre aux fiches de ce modèle : choisissez-en un autre d'abord.")
+
+        await self.db.delete(field)
+        await self.db.flush()
+        model.field_definitions.remove(field)
+
+        await self.audit.record(
+            organization_id=organization_id,
+            actor_user_id=actor.id,
+            action="field_definition.delete",
+            entity_type="field_definition",
+            entity_id=field_id,
+            old_value={"key": field.key},
+        )
+
+    async def reorder_fields(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        actor: User,
+        actor_membership: Membership,
+        model: ModelDefinition,
+        field_ids_in_order: list[uuid.UUID],
+    ) -> list[FieldDefinition]:
+        if not role_can(actor_membership.role, Action.MANAGE_MODELS):
+            raise PermissionDeniedError("Seul un administrateur peut réordonner les champs.")
+
+        fields_by_id = {f.id: f for f in model.field_definitions}
+        if set(field_ids_in_order) != set(fields_by_id):
+            raise FieldInUseError("La liste fournie ne correspond pas exactement aux champs existants du modèle.")
+
+        for position, field_id in enumerate(field_ids_in_order):
+            fields_by_id[field_id].position = position
+        await self.db.flush()
+
+        await self.audit.record(
+            organization_id=organization_id,
+            actor_user_id=actor.id,
+            action="field_definition.reorder",
+            entity_type="model_definition",
+            entity_id=model.id,
+            new_value={"order": [str(i) for i in field_ids_in_order]},
+        )
+        return sorted(model.field_definitions, key=lambda f: f.position)
+
+    @staticmethod
+    def _get_field(model: ModelDefinition, field_id: uuid.UUID) -> FieldDefinition:
+        for field in model.field_definitions:
+            if field.id == field_id:
+                return field
+        raise FieldNotFoundError("Champ introuvable sur ce modèle.")

@@ -49,3 +49,35 @@ async def upload_document(
         **DocumentOut.model_validate(document).model_dump(),
         url=document_service.signed_url(document),
     )
+
+
+@router.get("", response_model=list[DocumentWithUrlOut])
+async def list_documents(
+    record_id: uuid.UUID, membership: Membership = Depends(get_org_context), db: AsyncSession = Depends(get_db)
+) -> list[DocumentWithUrlOut]:
+    document_service = DocumentService(db)
+    documents = await document_service.list_for_record(membership.organization_id, record_id)
+    return [
+        DocumentWithUrlOut(**DocumentOut.model_validate(d).model_dump(), url=document_service.signed_url(d))
+        for d in documents
+    ]
+
+
+@router.get("/{document_id}", response_model=DocumentWithUrlOut)
+async def get_document(
+    record_id: uuid.UUID,
+    document_id: uuid.UUID,
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> DocumentWithUrlOut:
+    """Renouvelle l'URL signée (§14.1 : durée de vie courte) — le seul moyen pour
+    un client de revenir consulter un document après l'expiration du lien
+    obtenu au moment du téléversement.
+    """
+    document_service = DocumentService(db)
+    document = await document_service.get(membership.organization_id, document_id)
+    if document is None or document.record_id != record_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document introuvable.")
+    return DocumentWithUrlOut(
+        **DocumentOut.model_validate(document).model_dump(), url=document_service.signed_url(document)
+    )

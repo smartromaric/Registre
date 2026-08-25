@@ -94,6 +94,10 @@ class ModelDefinitionUpdate(BaseModel):
     is_archived: bool | None = None
 
 
+class FieldReorderRequest(BaseModel):
+    field_ids: list[uuid.UUID] = Field(min_length=1)
+
+
 class ModelDefinitionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -10,11 +10,13 @@ from app.models.user import User
 from app.schemas.model_definition import (
     FieldDefinitionCreate,
     FieldDefinitionOut,
+    FieldDefinitionUpdate,
+    FieldReorderRequest,
     ModelDefinitionCreate,
     ModelDefinitionOut,
     ModelDefinitionUpdate,
 )
-from app.services.model_definition_service import ModelDefinitionService
+from app.services.model_definition_service import FieldInUseError, FieldNotFoundError, ModelDefinitionService
 from app.services.organization_service import PermissionDeniedError
 
 router = APIRouter(prefix="/organizations/{organization_id}/model-definitions", tags=["model-definitions"])
@@ -106,3 +108,81 @@ async def add_field(
     except PermissionDeniedError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     return FieldDefinitionOut.model_validate(field)
+
+
+@router.patch("/{model_id}/fields/{field_id}", response_model=FieldDefinitionOut)
+async def update_field(
+    model_id: uuid.UUID,
+    field_id: uuid.UUID,
+    payload: FieldDefinitionUpdate,
+    user: User = Depends(get_current_user),
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> FieldDefinitionOut:
+    service = ModelDefinitionService(db)
+    model = await _get_model_or_404(service, membership.organization_id, model_id)
+    try:
+        field = await service.update_field(
+            organization_id=membership.organization_id,
+            actor=user,
+            actor_membership=membership,
+            model=model,
+            field_id=field_id,
+            payload=payload,
+        )
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except FieldNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return FieldDefinitionOut.model_validate(field)
+
+
+@router.delete("/{model_id}/fields/{field_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_field(
+    model_id: uuid.UUID,
+    field_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    service = ModelDefinitionService(db)
+    model = await _get_model_or_404(service, membership.organization_id, model_id)
+    try:
+        await service.delete_field(
+            organization_id=membership.organization_id,
+            actor=user,
+            actor_membership=membership,
+            model=model,
+            field_id=field_id,
+        )
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except FieldNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except FieldInUseError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+@router.put("/{model_id}/fields/reorder", response_model=list[FieldDefinitionOut])
+async def reorder_fields(
+    model_id: uuid.UUID,
+    payload: FieldReorderRequest,
+    user: User = Depends(get_current_user),
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> list[FieldDefinitionOut]:
+    service = ModelDefinitionService(db)
+    model = await _get_model_or_404(service, membership.organization_id, model_id)
+    try:
+        fields = await service.reorder_fields(
+            organization_id=membership.organization_id,
+            actor=user,
+            actor_membership=membership,
+            model=model,
+            field_ids_in_order=payload.field_ids,
+        )
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except FieldInUseError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return [FieldDefinitionOut.model_validate(f) for f in fields]

@@ -84,6 +84,12 @@ devient ensuite entièrement à vous : ajoutez, retirez ou renommez des champs,
 ou modifiez les articles de démarrage, sans que cela n'affecte les autres
 organisations.
 
+Modifier un champ existant ne change que ce que les utilisateurs voient
+(libellé, visibilité, mise en avant dans la liste) : la donnée technique
+(sa clé, son type) reste stable pour ne jamais casser les fiches déjà
+remplies. Un champ utilisé comme titre des fiches ne peut pas être
+supprimé tant qu'un autre champ n'a pas pris sa place comme titre.
+
 ## 4. Créer une fiche
 
 Depuis un modèle activé, créez une fiche en renseignant ses champs. Les champs
@@ -93,6 +99,11 @@ pas partager la même immatriculation dans la même organisation.
 
 Chaque fiche peut aussi recevoir des **événements** datés — un entretien, une
 réparation, un incident — avec un commentaire et un coût facultatif.
+
+Les documents et photos téléversés sur une fiche (carte grise, justificatif
+d'échéance, etc.) restent consultables depuis la fiche à tout moment par la
+suite — le lien de téléchargement est renouvelé automatiquement à chaque
+consultation, même longtemps après le téléversement initial.
 
 ## 5. Comprendre le champ Échéance et les alertes
 

@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Uni
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, OrgScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, OrgScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin, utcnow
 
 
 class Record(UUIDPrimaryKeyMixin, OrgScopedMixin, TimestampMixin, Base):
@@ -77,5 +77,5 @@ class RecordDeadline(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
     due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("documents.id"))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=utcnow
     )

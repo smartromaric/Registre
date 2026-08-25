@@ -331,7 +331,16 @@ notifications du lot 1 plutôt que d'être dupliqué ici.
   porteur "dans l'application" fonctionnel, porteur e-mail prêt (dépend d'un SMTP
   configuré), porteur WhatsApp en stub explicite qui échoue clairement plutôt que de
   prétendre envoyer (§8.6).
-- **Documents et photos** : téléversement lié à une fiche, URL signée à chaque lecture.
+- **Documents et photos** : téléversement lié à une fiche, URL signée à chaque lecture ;
+  relecture possible à tout moment après coup (`GET .../records/{id}/documents` liste,
+  `GET .../documents/{document_id}` renouvelle l'URL signée — §14.1, durée de vie
+  courte du lien) plutôt que de n'exister qu'au moment du téléversement initial.
+- **Gestion des champs après création** (§5.6, « ajoutez, retirez ou renommez des
+  champs ») : `PATCH .../fields/{id}` (libellé, options, visibilité — jamais `key` ni
+  `field_type`, pour ne pas rompre silencieusement les fiches déjà écrites sous cette
+  clé), `DELETE .../fields/{id}` (refuse avec 409 si le champ sert de titre aux
+  fiches), `PUT .../fields/reorder`. Le constructeur de modèles ne pouvait auparavant
+  qu'ajouter des champs, jamais modifier un champ existant après coup.
 
 **Correctif d'architecture découvert en testant le parcours réel** (pas seulement les
 tests automatisés, qui masquaient le problème en partageant une seule transaction) :
@@ -342,6 +351,18 @@ Elle porte maintenant une politique de lecture dédiée (visible si l'organisati
 correspond au contexte courant **ou** si la ligne appartient à l'utilisateur courant),
 tandis que les écritures restent strictement cantonnées au contexte déjà établi — voir
 la migration `5799f8fae891` et `core/deps.py`.
+
+**Second correctif, découvert en branchant le frontend contre le backend réel** :
+`PATCH .../records/{id}` et `POST .../records/{id}/archive` renvoyaient une erreur 500
+(`MissingGreenlet`) — et le même défaut latent touchait toute entité modifiable via
+`TimestampMixin` (ex. `PATCH /organizations/{id}`). Cause : `updated_at` utilisait
+`onupdate=func.now()` (calculé côté SQL) ; après le flush d'une mise à jour, SQLAlchemy
+expire l'attribut, et sa relecture immédiate pendant la sérialisation Pydantic
+déclenche un lazy-load implicite hors du pont async — d'où le `MissingGreenlet`.
+Corrigé en remplaçant `func.now()` par un callable Python (`onupdate=utcnow` dans
+`models/base.py`), calculé côté application avant le flush plutôt qu'après. Vérifié par
+`tests/test_record_and_organization_updates.py` et par un test en conditions réelles
+contre un serveur local (les trois routes précédemment cassées renvoient 200).
 
 Non fait volontairement à ce stade : filtres/recherche avancée sur les fiches (lot 3),
 focalisation des tableaux de bord (lot 3), Celery Beat pour le balayage automatique

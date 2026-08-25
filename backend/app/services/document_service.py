@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -50,3 +51,21 @@ class DocumentService:
 
     def signed_url(self, document: Document) -> str:
         return get_storage_backend().signed_url(document.storage_key)
+
+    async def list_for_record(self, organization_id: uuid.UUID, record_id: uuid.UUID) -> list[Document]:
+        """Sans cette route, un client (web ou mobile) qui revient sur une fiche
+        plus tard ne peut jamais retrouver les documents déjà téléversés : la
+        seule route de lecture était celle du téléversement lui-même.
+        """
+        stmt = (
+            select(Document)
+            .where(Document.organization_id == organization_id, Document.record_id == record_id)
+            .order_by(Document.created_at.desc())
+        )
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def get(self, organization_id: uuid.UUID, document_id: uuid.UUID) -> Document | None:
+        document = await self.db.get(Document, document_id)
+        if document is None or document.organization_id != organization_id:
+            return None
+        return document
