@@ -50,6 +50,19 @@ class StockRepository:
         stmt = select(StockLevel).where(StockLevel.variant_id == variant_id, StockLevel.depot_id == depot_id)
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
+    async def get_stock_level_for_update(self, variant_id: uuid.UUID, depot_id: uuid.UUID) -> StockLevel | None:
+        """Même granularité de verrou que `lock_available_lots_fifo` pour les
+        articles suivis en lots — nécessaire pour qu'une vérification de
+        suffisance de stock (sortie non suivie en lots) ne puisse jamais être
+        contournée par deux sorties concurrentes lisant la même quantité avant
+        que l'une des deux n'ait eu le temps de commiter."""
+        stmt = (
+            select(StockLevel)
+            .where(StockLevel.variant_id == variant_id, StockLevel.depot_id == depot_id)
+            .with_for_update()
+        )
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
     async def list_stock_levels(
         self, organization_id: uuid.UUID, *, variant_id: uuid.UUID | None = None, depot_id: uuid.UUID | None = None
     ) -> list[StockLevel]:

@@ -294,6 +294,17 @@ class StockService:
         else:
             if config.lot_tracking_enabled:
                 await self._consume_specific_lot(variant.id, payload.depot_id, payload.lot_number, payload.quantity)
+            else:
+                # Pas de suivi de lots : rien d'autre ne borne la quantité
+                # sortante avant l'écriture du mouvement — sans cette
+                # vérification (verrouillée, même principe que
+                # `_consume_lots_fifo`), deux sorties concurrentes pouvaient
+                # chacune lire un stock suffisant et laisser la quantité
+                # devenir négative.
+                level = await self.repo.get_stock_level_for_update(variant.id, payload.depot_id)
+                available = level.quantity if level else 0
+                if available < payload.quantity:
+                    raise InsufficientStockError(f"Stock insuffisant : {payload.quantity - available} unité(s) manquante(s).")
             movements.append(
                 self._build_exit_movement(organization_id, actor, variant.id, payload, payload.quantity, payload.lot_number)
             )
@@ -449,6 +460,20 @@ class StockService:
         if not config.is_consigned:
             raise StockError("Cet article n'est pas déclaré consigné.")
 
+        # §11.4 : une resoumission (coupure réseau après écriture, avant la
+        # réponse) doit être sans effet, comme pour les quatre routes de
+        # mouvement — ConsignmentLevel est mutée en place (pas un journal
+        # append-only comme StockMovement), donc c'est le journal d'audit qui
+        # sert de garde plutôt qu'une recherche de ligne déjà écrite.
+        if payload.client_operation_id is not None:
+            replay = await self.audit.find_by_client_operation_id(
+                organization_id, f"consignment.{payload.action}", payload.client_operation_id
+            )
+            if replay is not None:
+                existing_level = await self.repo.get_consignment_level(variant.id, payload.depot_id)
+                if existing_level is not None:
+                    return existing_level
+
         level = await self.repo.get_consignment_level(variant.id, payload.depot_id)
         if level is None:
             level = ConsignmentLevel(organization_id=organization_id, variant_id=variant.id, depot_id=payload.depot_id)
@@ -458,6 +483,7 @@ class StockService:
         if payload.action == "deliver_full":
             movement = StockMovement(
                 organization_id=organization_id,
+                client_operation_id=payload.client_operation_id,
                 variant_id=variant.id,
                 depot_id=payload.depot_id,
                 movement_type=MovementType.EXIT,
@@ -483,6 +509,7 @@ class StockService:
             entity_type="consignment_level",
             entity_id=level.id,
             new_value={"quantity": payload.quantity},
+            client_operation_id=payload.client_operation_id,
         )
         return level
 

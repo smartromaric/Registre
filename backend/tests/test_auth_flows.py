@@ -51,7 +51,7 @@ async def test_reset_password_with_valid_token_allows_login_with_new_password(cl
     db_session.add(user)
     await db_session.flush()
 
-    token = create_password_reset_token(user.id)
+    token = create_password_reset_token(user.id, user.hashed_password)
     response = await client.post(
         "/api/v1/auth/password/reset", json={"token": token, "password": "nouveau-mdp-tres-sur"}
     )
@@ -169,7 +169,7 @@ async def test_decode_invitation_service_error_for_expired_type(db_session):
 
     raised = False
     try:
-        await AuthService(db_session).get_invitation_info(create_password_reset_token(user.id))
+        await AuthService(db_session).get_invitation_info(create_password_reset_token(user.id, "peu-importe"))
     except AuthError:
         raised = True
     assert raised

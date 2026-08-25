@@ -98,9 +98,14 @@ class TwoFactorService:
         if pyotp.TOTP(user.totp_secret).verify(code, valid_window=1):
             return user
 
-        if self._consume_backup_code(user, code):
-            await self.users.save(user)
-            return user
+        # Verrou de ligne avant toute tentative de consommation : sans lui, deux
+        # vérifications concurrentes avec le même code de secours peuvent toutes
+        # les deux le lire "encore présent" et réussir — un code de secours doit
+        # être strictement à usage unique (voir UserRepository.get_for_update).
+        locked_user = await self.users.get_for_update(user.id)
+        if locked_user is not None and self._consume_backup_code(locked_user, code):
+            await self.users.save(locked_user)
+            return locked_user
 
         raise TwoFactorError("Code invalide.")
 

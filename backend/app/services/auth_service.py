@@ -17,6 +17,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     hash_password,
+    password_fingerprint,
     verify_password,
 )
 from app.models.membership import Membership, OrgRole
@@ -67,13 +68,18 @@ class AuthService:
         email = email.strip().lower()
         existing = await self.users.get_by_email(email)
         if existing is not None:
-            if existing.hashed_password is not None:
-                raise AuthError("Un compte existe déjà avec cet e-mail.")
-            # Compte "invité" en attente : on lui permet de réclamer son accès (§4.4).
-            existing.hashed_password = hash_password(password)
-            existing.full_name = full_name or existing.full_name
-            existing.is_active = True
-            return await self.users.save(existing)
+            # Correctif sécurité (2026-08-25) : ce chemin permettait auparavant de
+            # "réclamer" n'importe quel compte dont `hashed_password IS NULL` — ce
+            # qui n'est pas seulement l'état d'une invitation en attente, mais aussi
+            # celui, permanent, de tout compte connecté uniquement via Google.
+            # Connaître l'adresse e-mail d'une victime suffisait à obtenir des
+            # jetons valides pour son compte, invitation ou non, 2FA jamais
+            # vérifiée sur ce chemin. Un compte existant — quel que soit son état —
+            # ne se réclame plus jamais par une simple inscription : une invitation
+            # en attente ne se réclame que via son jeton signé et scopé à
+            # l'organisation (`/auth/invitations/accept`, voir AuthService.accept_invitation),
+            # la seule preuve d'autorisation valable.
+            raise AuthError("Un compte existe déjà avec cet e-mail.")
 
         user = User(email=email, full_name=full_name, hashed_password=hash_password(password), is_active=True)
         return await self.users.create(user)
@@ -176,7 +182,7 @@ class AuthService:
         user = await self.users.get_by_email(email.strip().lower())
         if user is None or user.hashed_password is None or not user.is_active:
             return
-        token = create_password_reset_token(user.id)
+        token = create_password_reset_token(user.id, user.hashed_password)
         link = f"{get_settings().frontend_base_url}/reinitialiser-mot-de-passe?token={token}"
         try:
             send_email(
@@ -201,8 +207,14 @@ class AuthService:
         if payload.get("type") != "password_reset":
             raise AuthError("Lien de réinitialisation invalide.")
         user = await self.users.get(uuid.UUID(payload["sub"]))
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or user.hashed_password is None:
             raise AuthError("Compte introuvable ou désactivé.")
+        # Jeton à usage unique (voir create_password_reset_token) : une empreinte
+        # qui ne correspond plus au mot de passe actuel signifie que ce jeton a
+        # déjà servi (ou que le mot de passe a changé entretemps par un autre
+        # chemin) — le rejouer ne doit rien faire d'autre qu'échouer.
+        if payload.get("pwd_fp") != password_fingerprint(user.hashed_password):
+            raise AuthError("Ce lien de réinitialisation a déjà été utilisé.")
         user.hashed_password = hash_password(new_password)
         return await self.users.save(user)
 
@@ -241,6 +253,14 @@ class AuthService:
 
     async def accept_invitation(self, token: str, password: str, full_name: str | None) -> User:
         user, _membership, _organization = await self._decode_invitation(token)
+        # Verrou de ligne : sans lui, deux soumissions concurrentes du même lien
+        # (double clic, retentative réseau) pouvaient toutes deux lire
+        # `hashed_password is None` et écraser silencieusement l'une le mot de
+        # passe de l'autre — même principe que le code de secours 2FA, voir
+        # UserRepository.get_for_update.
+        locked_user = await self.users.get_for_update(user.id)
+        if locked_user is not None:
+            user = locked_user
         if user.hashed_password is not None:
             # Invitation déjà réclamée (ce lien a déjà servi, ou le compte a été
             # activé autrement entretemps, ex. connexion Google) : pas d'erreur,

@@ -15,7 +15,11 @@ from app.alerts.notify import (
     dispatch_lot_expiry_notifications,
     dispatch_stock_threshold_notifications,
 )
+from app.core.permissions import Action, role_can
 from app.models.alert import Alert, AlertStatus
+from app.models.membership import Membership
+from app.models.user import User
+from app.services.organization_service import PermissionDeniedError
 
 
 class AlertNotFoundError(Exception):
@@ -59,14 +63,25 @@ class AlertService:
         stmt = stmt.order_by(Alert.created_at.desc())
         return list((await self.db.execute(stmt)).scalars().all())
 
-    async def acknowledge(self, organization_id: uuid.UUID, alert_id: uuid.UUID) -> Alert:
+    async def acknowledge(
+        self, organization_id: uuid.UUID, alert_id: uuid.UUID, actor: User, actor_membership: Membership
+    ) -> Alert:
         alert = await self._get(organization_id, alert_id)
+        self._check_can_touch(alert, actor, actor_membership)
         alert.status = AlertStatus.ACKNOWLEDGED
         await self.db.flush()
         return alert
 
-    async def postpone(self, organization_id: uuid.UUID, alert_id: uuid.UUID, until: date) -> Alert:
+    async def postpone(
+        self,
+        organization_id: uuid.UUID,
+        alert_id: uuid.UUID,
+        until: date,
+        actor: User,
+        actor_membership: Membership,
+    ) -> Alert:
         alert = await self._get(organization_id, alert_id)
+        self._check_can_touch(alert, actor, actor_membership)
         alert.status = AlertStatus.POSTPONED
         alert.postponed_until = until
         await self.db.flush()
@@ -77,3 +92,20 @@ class AlertService:
         if alert is None or alert.organization_id != organization_id:
             raise AlertNotFoundError("Alerte introuvable.")
         return alert
+
+    @staticmethod
+    def _check_can_touch(alert: Alert, actor: User, actor_membership: Membership) -> None:
+        """Correctif sécurité (2026-08-25) : n'importe quel membre actif de
+        l'organisation, y compris un READER, pouvait jusqu'ici acquitter ou
+        reporter l'alerte de n'importe qui — aucune vérification n'existait,
+        contrairement à toute autre action mutante du produit. Une alerte
+        adressée personnellement (`recipient_user_id`) reste acquittable par
+        son destinataire quel que soit son rôle (c'est tout le sens d'une
+        alerte personnelle) ; toute autre alerte (sans destinataire, ou
+        adressée à quelqu'un d'autre) exige `CONFIGURE_ALERTS` (ADMIN/MANAGER).
+        """
+        if alert.recipient_user_id == actor.id:
+            return
+        if role_can(actor_membership.role, Action.CONFIGURE_ALERTS):
+            return
+        raise PermissionDeniedError("Vous n'avez pas le droit de modifier cette alerte.")

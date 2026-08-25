@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -41,8 +42,33 @@ def create_refresh_token(user_id: uuid.UUID) -> str:
     return _create_token(user_id, "refresh", timedelta(days=settings.refresh_token_expire_days))
 
 
-def create_password_reset_token(user_id: uuid.UUID) -> str:
-    return _create_token(user_id, "password_reset", timedelta(hours=1))
+def password_fingerprint(hashed_password: str) -> str:
+    """Empreinte courte et stable du mot de passe actuel, embarquée dans le
+    jeton de réinitialisation pour le rendre à usage unique sans état
+    supplémentaire en base (voir create_password_reset_token)."""
+    return hashlib.sha256(hashed_password.encode("utf-8")).hexdigest()[:16]
+
+
+def create_password_reset_token(user_id: uuid.UUID, current_hashed_password: str) -> str:
+    """Correctif sécurité (2026-08-25) : un jeton `password_reset` JWT n'a par
+    nature aucun état côté serveur, donc rien n'empêchait par défaut de le
+    rejouer plusieurs fois pendant toute son heure de validité. Embarquer une
+    empreinte du mot de passe EN PLACE au moment de l'émission rend le jeton
+    à usage unique sans table de jetons consommés à tenir à jour : la première
+    utilisation change le mot de passe, donc change l'empreinte, donc toute
+    resoumission du même jeton ne correspond plus à rien (voir
+    AuthService.reset_password, qui vérifie l'empreinte avant d'appliquer).
+    """
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(user_id),
+        "type": "password_reset",
+        "pwd_fp": password_fingerprint(current_hashed_password),
+        "iat": int(now.timestamp()),
+        "exp": now + timedelta(hours=1),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def create_two_factor_challenge_token(user_id: uuid.UUID) -> str:

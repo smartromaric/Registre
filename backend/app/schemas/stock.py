@@ -161,6 +161,12 @@ class StockLotOut(BaseModel):
 
 
 class ConsignmentActionCreate(BaseModel):
+    # Correctif sécurité/intégrité (2026-08-25) : contrairement aux quatre
+    # routes de mouvement (entry/exit/adjustment/transfer), cette action
+    # n'avait aucun moyen de détecter une resoumission — une simple relance
+    # réseau après écriture, avant la réponse, appliquait le delta une seconde
+    # fois (voir StockService.record_consignment_action).
+    client_operation_id: uuid.UUID | None = None
     variant_id: uuid.UUID
     depot_id: uuid.UUID
     # Cahier des charges §7.6 : "une sortie de bouteille pleine incrémente la

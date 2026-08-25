@@ -276,7 +276,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ✅ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ✅ |
-| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | 🔶 (fondations serveur livrées — voir §10.11 ; PWA/service worker frontend à venir) |
+| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ✅ (backend §10.11, frontend §10.12) |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
 
 **Lot 5 repris (2026-08-25)** : le périmètre §11.2 (« à valider », Q9) est adopté tel
@@ -284,10 +284,9 @@ quel comme périmètre v1, à la demande du client. Le socle serveur nécessaire
 synchronisation — fusion champ par champ avec journal de conflit, téléversement repris
 par morceaux — est livré et testé (§10.11) ; il s'appuie sur les fondations déjà posées
 au lot 0 (identifiants générés côté client, mouvements de stock additifs et immuables,
-journal d'opérations via le journal d'audit — §10.6). Reste à construire : le service
-worker, la file d'opérations locale (IndexedDB) et l'indicateur de connexion côté
-frontend — non commencés dans ce même passage, périmètre trop large pour être livré
-en une fois avec le reste de cette liste.
+journal d'opérations via le journal d'audit — §10.6). Le service worker, la file
+d'opérations locale (IndexedDB) et l'indicateur de connexion côté frontend sont livrés
+séparément, dans une passe suivante (§10.12).
 
 Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, puis un
 écran par lot backend livré) :
@@ -299,6 +298,7 @@ Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, pu
 | Stock | Dépôts, articles/variantes, saisie de mouvements, seuils | ✅ |
 | Tableaux de bord | Vue globale puis focalisable par modèle (§10.2) | ✅ |
 | Abonnements/éditeur | Écrans de facturation, espace éditeur | ✅ |
+| Hors-ligne (PWA) | Service worker, file d'opérations IndexedDB, indicateur de connexion, journal de conflits | ✅ |
 
 Détail de ce qui est fait/pas fait dans `frontend/README.md`.
 
@@ -837,8 +837,7 @@ catalogue public).
 ### 10.11 Détail du lot 5 livré (backend) : fusion champ par champ, journal de conflits, téléversement repris
 
 Socle serveur de la synchronisation hors-ligne (§11.3). Le frontend (service worker,
-file d'opérations IndexedDB, indicateur de connexion) n'est pas construit dans ce
-même passage — voir la note de statut ci-dessus.
+file d'opérations IndexedDB, indicateur de connexion) est livré séparément — voir §10.12.
 
 **Fusion champ par champ.** `Record.field_updated_at` (JSONB, `{clé: horodatage}`)
 tient à jour, pour chaque champ de `data`, l'instant où il a été écrit pour la
@@ -920,6 +919,159 @@ en important le modèle avant de régénérer — la migration de ce lot ne touc
 du tout `saved_dashboards`. Sans cette vérification, la prochaine migration
 autogénérée du projet aurait réellement supprimé les tableaux de bord enregistrés
 de tous les utilisateurs.
+
+### 10.12 Détail du lot 5 livré (frontend) : PWA, file d'opérations, indicateur de connexion
+
+Consomme le socle serveur du §10.11 sans le redessiner. Service worker écrit à la
+main (`frontend/public/sw.js`) — pas de next-pwa/workbox, absents des dépendances du
+projet et de compatibilité non garantie avec Turbopack (Next 16) — dont le seul rôle
+est de rendre consultable hors-ligne une page déjà visitée : cache-first pour les
+bundles `/_next/static/*`, réseau-puis-cache pour les pages HTML déjà ouvertes. Ne
+touche jamais au backend FastAPI ni aux routes `/api/*` (proxy d'auth Next.js) : le
+jeton d'accès reste uniquement en mémoire JS (`src/lib/session.ts`, choix délibéré
+contre le XSS), un service worker n'a aucun moyen de le poser sur une requête.
+
+**File d'opérations** (`frontend/src/lib/offline/db.ts`, IndexedDB via `idb`) : trois
+magasins — `operations` (créations/mises à jour de fiche, mouvements de stock,
+téléversements, en attente de synchronisation), `records_cache` (dernier instantané
+connu de chaque fiche déjà visitée) et `upload_sessions` (fichier + progression d'un
+téléversement repris). `lib/offline/sync-engine.ts` rejoue la file strictement dans
+l'ordre `createdAt` (une mise à jour ne rejoue jamais avant la création dont elle
+dépend), séquentiellement — succès retiré de la file, 401 tente un rafraîchissement du
+jeton puis rejoue une fois, coupure réseau remet l'opération "pending" et arrête la
+passe (rien perdu, rien classé en échec pour un simple aller-retour manqué), toute
+autre erreur (ex. 422) classe l'opération "failed" et continue les suivantes.
+`lib/offline/use-offline-sync.ts` déclenche une passe au montage, à chaque retour de
+réseau et toutes les 30 s tant que la session est active — jamais en tâche de fond
+onglet fermé (Background Sync API explicitement hors périmètre, voir §10.11).
+
+**Identifiants et fusion côté formulaire** (`components/fiches/record-form.tsx`) :
+l'id de fiche est désormais **toujours** généré côté client (pas seulement
+hors-ligne, cahier des charges §11.4), et chaque mise à jour envoie
+`field_written_at` (un horodatage par champ modifié, capturé à cette soumission
+précise). Une écriture qui échoue avec `ApiError.kind === "network"` part dans la
+file plutôt que d'afficher une erreur, avec un instantané local immédiatement utilisable
+(navigation vers la fiche inchangée). Même principe pour les mouvements de stock
+(`components/stock/movement-dialog.tsx`, `client_operation_id` désormais posé sur les
+quatre types de mouvement).
+
+**Téléversement repris** (`lib/offline/uploads.ts`) : `uploadDocumentResumable`
+découpe le fichier en morceaux de 1 Mo, pousse ceux qui manquent encore côté serveur
+(relu via `GET .../uploads/{id}`, source de vérité après une reprise), puis termine
+l'envoi — hors-ligne, la session part en file et un aperçu local (`URL.createObjectURL`)
+s'affiche immédiatement. **Limite assumée** : l'id de session diffère de l'id de
+document final côté serveur, et la synchronisation en arrière-plan ne réécrit pas
+cette référence dans l'état du formulaire une fois l'envoi terminé — décrit en
+commentaire à l'endroit exact du code, pas seulement ici.
+
+**Journal de conflits** (`app/(app)/organisation/conflits/page.tsx`, réservé à
+l'ADMIN, même gate qu'`organisation/membres`) : liste `field_key`, valeur conservée,
+valeur rejetée, les deux horodatages, filtre "non vus uniquement", marquage comme vu.
+Le conflit ne porte que l'id de fiche (pas l'id de modèle) — affiché en texte brut
+plutôt que de résoudre un lien qui coûterait un aller-retour par ligne.
+
+**Indicateur de connexion** (`components/offline/offline-status-indicator.tsx`,
+en-tête de l'application) : reprend mot pour mot la formulation du cahier des charges
+(§11.3, §7.6) — « Hors-ligne — *N* opération(s) en attente ».
+
+**Installabilité** : `public/manifest.webmanifest` + deux icônes SVG statiques
+(`public/icons/icon.svg`, `icon-maskable.svg`) reproduisant le monogramme existant
+(`components/brand/logo.tsx`) à l'échelle d'un icône d'application — pas un jeu
+d'icônes PNG dessiné, hors périmètre de cette passe (le SVG seul suffit à
+l'installabilité sur les navigateurs évergreen visés).
+
+**Non fait volontairement, comme prévu par le brief** : pas d'écran de gestion des
+opérations "failed" (retry/dismiss) au-delà d'un toast affiché une fois ; pas
+d'éviction du cache par dépôt pour le plafond de stockage du §11.5 (seulement une
+purge simple par ancienneté, 12 mois, au démarrage) ; pas de reprise pour la pièce
+jointe optionnelle d'un mouvement de stock saisi hors-ligne (elle est simplement
+omise du mouvement mis en file, contrairement aux champs Document/Photo d'une fiche,
+qui bénéficient pleinement de la reprise par morceaux).
+
+Vérifié par `npm run lint` et `npm run build` (TypeScript strict, toutes les routes
+compilent, y compris `/organisation/conflits`) — pas de suite de tests frontend
+automatisée dans ce projet à ce jour, cohérent avec le reste de `frontend/`.
+
+### 10.13 Chasse au bug dédiée (2026-08-25) : neuf failles trouvées et corrigées
+
+Balayage ciblé du backend (RLS, droits, rejeu/idempotence, arithmétique de stock,
+moteur d'alertes, authentification/2FA), chaque candidat vérifié par un test avant
+d'être considéré confirmé. Neuf corrections, de la plus grave à la plus mineure —
+toutes couvertes par `backend/tests/test_security_fixes.py`, suite complète 83/83 :
+
+1. **Prise de compte via `/auth/signup`** — `AuthService.signup_with_password`
+   traitait tout `User.hashed_password IS NULL` comme une invitation en attente
+   réclamable par un simple e-mail + mot de passe. Or c'est aussi l'état permanent
+   de tout compte connecté uniquement via Google : connaître l'adresse e-mail d'une
+   victime suffisait à obtenir des jetons valides pour son compte, 2FA jamais
+   vérifiée sur ce chemin. Corrigé en supprimant ce chemin de « réclamation » —
+   un compte existant, quel que soit son état, ne se réclame plus jamais que par
+   son jeton d'invitation signé (`/auth/invitations/accept`, déjà construit et
+   testé — voir §4.4).
+2. **Jeton de réinitialisation de mot de passe rejouable** — un jeton JWT
+   `password_reset` n'a par nature aucun état côté serveur, donc rien n'empêchait
+   de le rejouer plusieurs fois pendant son heure de validité. Corrigé sans table
+   supplémentaire : le jeton embarque désormais une empreinte du mot de passe EN
+   PLACE au moment de l'émission (`security.password_fingerprint`) ; la première
+   utilisation change le mot de passe, donc l'empreinte, donc toute resoumission
+   ne correspond plus à rien.
+3. **Code de secours 2FA consommable deux fois sous concurrence** — lecture puis
+   écriture de `User.totp_backup_codes` sans verrou : deux vérifications
+   concurrentes avec le même code pouvaient toutes deux le trouver « encore
+   présent » et réussir. Corrigé par un verrou de ligne (`SELECT ... FOR UPDATE`,
+   `UserRepository.get_for_update`) juste avant la tentative de consommation —
+   même principe que le verrou déjà utilisé pour la consommation FIFO des lots de
+   stock (`lock_available_lots_fifo`). Même correctif appliqué à l'acceptation
+   d'invitation (`AuthService.accept_invitation`), plus mineur mais même risque de
+   double soumission concurrente écrasant silencieusement l'une l'autre.
+4. **Stock négatif sans fin pour un article non suivi en lots** — `record_exit`
+   vérifiait la suffisance du stock pour la branche « suivi en lots », jamais
+   pour la branche par défaut (plus fréquente). Corrigé par la même vérification
+   verrouillée (`StockRepository.get_stock_level_for_update`, même grain que le
+   verrou des lots) avant d'autoriser la sortie.
+5. **`UploadSessionService.complete` pas réellement rejouable sous concurrence**
+   — contredisait sa propre documentation (§10.11) : deux appels concurrents
+   pouvaient tous deux assembler et téléverser, le second échouant sur les
+   morceaux déjà nettoyés par le premier plutôt que de recevoir le document déjà
+   produit. Corrigé par un verrou de ligne sur la session avant toute décision.
+6. **Actions de consignation sans idempotence** — contrairement aux quatre routes
+   de mouvement, `ConsignmentActionCreate` ne portait aucun `client_operation_id` :
+   une resoumission réseau doublait la quantité en circulation et la caution
+   perçue. Corrigé en ajoutant ce champ et une vérification via le journal
+   d'audit (`AuditService.find_by_client_operation_id`) — `ConsignmentLevel` est
+   mutée en place, pas un journal append-only comme `StockMovement`, donc c'est
+   le journal d'audit qui sert de garde ici plutôt qu'une recherche de ligne déjà
+   écrite.
+7. **N'importe quel membre pouvait acquitter/reporter l'alerte de n'importe qui**
+   — `acknowledge_alert`/`postpone_alert` ne vérifiaient aucun rôle ni aucune
+   propriété, contrairement à toute autre action mutante du produit. Corrigé :
+   le destinataire d'une alerte personnelle (`Alert.recipient_user_id`) garde le
+   droit de l'acquitter quel que soit son rôle — c'est le sens même d'une alerte
+   personnelle — mais toute autre alerte exige désormais `CONFIGURE_ALERTS`
+   (ADMIN/MANAGER).
+8. **N'importe quel membre pouvait téléverser un document sur n'importe quelle
+   fiche** — aucune des routes de `documents.py` (envoi direct ou par morceaux)
+   ne vérifiait de rôle. Corrigé : même droit que la création/modification de
+   fiche (`CREATE_EDIT_RECORD`) — un document est une modification de fiche
+   comme une autre (§5.2), pas un droit à part.
+9. **Réutilisation d'un `id` client pour deux fiches différentes, en silence** —
+   `RecordService.create` renvoyait la fiche déjà créée sans jamais comparer
+   contre les nouvelles données envoyées ; un bug client réutilisant un UUID pour
+   deux créations logiquement différentes perdait la seconde sans aucun signal.
+   Corrigé : `data` normalisé est comparé à la fiche existante, et un désaccord
+   échoue bruyamment plutôt que de disparaître.
+
+**Étendue de la vérification** : chaque candidat de la liste ci-dessus a d'abord
+été démontré par un test jetable exécuté contre la vraie base Postgres locale,
+supprimé une fois confirmé (aucune pollution du dépôt) — cohérent avec le principe
+du produit : un échec est toujours un échec explicite, jamais un succès simulé,
+et un correctif de sécurité n'est retenu que démontré, pas supposé. Les deux
+correctifs de concurrence (3 et 5) reposent sur `SELECT ... FOR UPDATE`, un
+verrou de ligne Postgres standard déjà éprouvé ailleurs dans ce code
+(`lock_available_lots_fifo`) — l'architecture de test de ce projet (une
+transaction par test, jamais commitée) ne permet pas d'exercer une vraie
+concurrence entre deux connexions dans la suite automatisée ; la preuve reste
+donc le test jetable exécuté puis supprimé, pas un test permanent.
 
 ## 11. Manuel utilisateur
 

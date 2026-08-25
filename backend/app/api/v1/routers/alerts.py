@@ -13,6 +13,7 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.alert import AlertOut, AlertPostpone, NotificationOut
 from app.services.alert_service import AlertNotFoundError, AlertService
+from app.services.organization_service import PermissionDeniedError
 
 router = APIRouter(tags=["alerts"])
 
@@ -53,13 +54,18 @@ async def list_alerts(
 
 @router.post("/organizations/{organization_id}/alerts/{alert_id}/acknowledge", response_model=AlertOut)
 async def acknowledge_alert(
-    alert_id: uuid.UUID, membership: Membership = Depends(get_org_context), db: AsyncSession = Depends(get_db)
+    alert_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    membership: Membership = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
 ) -> AlertOut:
     service = AlertService(db)
     try:
-        alert = await service.acknowledge(membership.organization_id, alert_id)
+        alert = await service.acknowledge(membership.organization_id, alert_id, user, membership)
     except AlertNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     return AlertOut.model_validate(alert)
 
 
@@ -67,14 +73,17 @@ async def acknowledge_alert(
 async def postpone_alert(
     alert_id: uuid.UUID,
     payload: AlertPostpone,
+    user: User = Depends(get_current_user),
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> AlertOut:
     service = AlertService(db)
     try:
-        alert = await service.postpone(membership.organization_id, alert_id, payload.postponed_until)
+        alert = await service.postpone(membership.organization_id, alert_id, payload.postponed_until, user, membership)
     except AlertNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     return AlertOut.model_validate(alert)
 
 

@@ -5,15 +5,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_org_context
+from app.core.permissions import Action, role_can
 from app.models.membership import Membership
 from app.models.user import User
 from app.schemas.document import DocumentOut, DocumentWithUrlOut
 from app.schemas.sync import UploadSessionCreate, UploadSessionOut
 from app.services.document_service import MAX_UPLOAD_BYTES, DocumentService
+from app.services.organization_service import PermissionDeniedError
 from app.services.record_service import RecordService
 from app.services.sync_service import UploadSessionError, UploadSessionService
 
 router = APIRouter(prefix="/organizations/{organization_id}/records/{record_id}/documents", tags=["documents"])
+
+
+def _require_can_edit_records(membership: Membership) -> None:
+    """Correctif sécurité (2026-08-25) : aucune des routes d'écriture de ce
+    routeur ne vérifiait de rôle — un READER pouvait téléverser un document ou
+    une photo sur n'importe quelle fiche. Un document est une modification de
+    fiche comme une autre (§5.2) : même droit que la création/modification de
+    fiche (`CREATE_EDIT_RECORD`), pas un droit à part."""
+    if not role_can(membership.role, Action.CREATE_EDIT_RECORD):
+        raise PermissionDeniedError("Vous n'avez pas le droit de téléverser un document sur cette fiche.")
 
 
 @router.post("", response_model=DocumentWithUrlOut, status_code=status.HTTP_201_CREATED)
@@ -25,6 +37,10 @@ async def upload_document(
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentWithUrlOut:
+    try:
+        _require_can_edit_records(membership)
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     record = await RecordService(db).get(membership.organization_id, record_id)
     if record is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Fiche introuvable.")
@@ -61,6 +77,10 @@ async def create_upload_session(
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> UploadSessionOut:
+    try:
+        _require_can_edit_records(membership)
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     record = await RecordService(db).get(membership.organization_id, record_id)
     if record is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Fiche introuvable.")
@@ -105,6 +125,10 @@ async def put_upload_chunk(
 ) -> UploadSessionOut:
     """Corps brut (pas de multipart) : un seul morceau, taille bornée par
     `session.chunk_size` — voir UploadSessionService.save_chunk."""
+    try:
+        _require_can_edit_records(membership)
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     service = UploadSessionService(db)
     session = await service.get(membership.organization_id, session_id)
     if session is None or session.record_id != record_id:
@@ -125,6 +149,10 @@ async def complete_upload_session(
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentWithUrlOut:
+    try:
+        _require_can_edit_records(membership)
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     service = UploadSessionService(db)
     session = await service.get(membership.organization_id, session_id)
     if session is None or session.record_id != record_id:

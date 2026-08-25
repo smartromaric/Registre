@@ -108,6 +108,13 @@ class UploadSessionService:
             return None
         return session
 
+    async def _get_for_update(self, organization_id: uuid.UUID, session_id: uuid.UUID) -> UploadSession | None:
+        stmt = select(UploadSession).where(UploadSession.id == session_id).with_for_update()
+        found = (await self.db.execute(stmt)).scalar_one_or_none()
+        if found is None or found.organization_id != organization_id:
+            return None
+        return found
+
     def expected_chunk_count(self, session: UploadSession) -> int:
         return math.ceil(session.total_bytes / session.chunk_size)
 
@@ -136,6 +143,16 @@ class UploadSessionService:
         record: Record,
         document_service: DocumentService,
     ) -> Document:
+        # Verrou de ligne avant toute décision : sans lui, deux appels concurrents
+        # à `complete` pour la même session pouvaient tous deux lire "en cours",
+        # assembler et téléverser chacun de leur côté — le second échouant avec
+        # une erreur disque brute au lieu d'un résultat idempotent, puisque le
+        # premier avait déjà nettoyé les morceaux (voir app/storage/chunked.py).
+        locked = await self._get_for_update(organization_id, session.id)
+        if locked is None:
+            raise UploadSessionError("Session de téléversement introuvable.")
+        session = locked
+
         # Resoumission après coupure entre l'écriture et la réponse (§11.4) :
         # renvoie le document déjà produit plutôt que d'assembler une seconde fois.
         if session.status == "completed" and session.document_id is not None:

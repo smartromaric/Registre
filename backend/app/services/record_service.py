@@ -85,13 +85,24 @@ class RecordService:
         # sans effet — une resoumission après une synchronisation interrompue
         # (coupure réseau juste après l'écriture, avant que la réponse ne
         # revienne à l'appareil) renvoie la fiche déjà créée plutôt que d'en
-        # produire une seconde.
+        # produire une seconde. `validate_and_normalize` est pure (aucune
+        # écriture) : l'appeler avant de savoir s'il s'agit d'une resoumission
+        # permet de comparer contre la fiche déjà en place et de refuser
+        # bruyamment un `id` réutilisé pour des données réellement différentes
+        # (bug client) plutôt que de perdre la seconde version en silence —
+        # sans jamais réappliquer `_check_uniqueness`, qui rejetterait à tort
+        # une vraie resoumission (la valeur "déjà utilisée" serait la sienne).
+        normalized = validate_and_normalize(model.field_definitions, data, partial=False)
+
         if record_id is not None:
             existing = await self.get(organization_id, record_id)
             if existing is not None:
+                if existing.data != normalized:
+                    raise FieldValidationError(
+                        {"_": "Cet identifiant a déjà été utilisé pour créer une fiche différente."}
+                    )
                 return existing
 
-        normalized = validate_and_normalize(model.field_definitions, data, partial=False)
         await self._check_uniqueness(organization_id, model, normalized)
 
         created_at = datetime.now(UTC)
