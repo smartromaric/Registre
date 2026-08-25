@@ -45,15 +45,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </p>
       </div>
 
-      <div className="relative flex flex-col bg-background lg:overflow-y-auto">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 overflow-hidden lg:hidden"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 12% 18%, color-mix(in oklch, var(--primary), transparent 88%), transparent 45%), radial-gradient(circle at 88% 78%, color-mix(in oklch, var(--gold), transparent 90%), transparent 50%)",
-          }}
-        />
+      {/* Volontairement sans fond opaque : la trame et les lueurs portées par
+          `body` (voir globals.css) doivent traverser ce panneau, exactement
+          comme dans la coquille applicative. */}
+      <div className="relative flex flex-col lg:overflow-y-auto">
         <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
           <Link href="/" aria-label="Registre — accueil" className="transition-opacity hover:opacity-80 lg:hidden">
             <Logo />

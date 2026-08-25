@@ -203,8 +203,38 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /*
+   * Fond d'application : même vocabulaire que le motif des cartes
+   * (`.card-motif`), mais délibérément plus aéré et plus pâle — trame de 26 px
+   * contre 15 px, et deux crans d'opacité en moins. C'est ce qui laisse les
+   * cartes se détacher comme des surfaces posées dessus : si le fond portait
+   * la même densité, tout se lirait sur un seul plan.
+   *
+   * Les deux voiles radiaux (marque à gauche, pêche à droite) restent ancrés
+   * en haut de la fenêtre grâce à `background-attachment: fixed` : une lueur
+   * d'ambiance, pas un élément qui défile avec le contenu. Tout passe par des
+   * jetons, donc les deux thèmes suivent sans règle supplémentaire.
+   */
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--primary), transparent 93%) 1px, transparent 0),
+      radial-gradient(ellipse 58% 42% at 16% 0%, color-mix(in oklch, var(--primary), transparent 91%), transparent 62%),
+      radial-gradient(ellipse 42% 36% at 88% 0%, color-mix(in oklch, var(--gold), transparent 92%), transparent 64%);
+    background-size:
+      26px 26px,
+      100% 100%,
+      100% 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-attachment: fixed;
+  }
+  /* Sur fond sombre, la trame disparaît et les voiles ternissent à opacité
+     égale — mêmes valeurs remontées d'un cran, comme pour `.card-motif`. */
+  .dark body {
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--primary), transparent 88%) 1px, transparent 0),
+      radial-gradient(ellipse 58% 42% at 16% 0%, color-mix(in oklch, var(--primary), transparent 86%), transparent 62%),
+      radial-gradient(ellipse 42% 36% at 88% 0%, color-mix(in oklch, var(--gold), transparent 88%), transparent 64%);
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

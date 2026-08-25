@@ -84,16 +84,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return <SplashScreen />;
   }
 
+  // Pas de fond opaque sur la coquille : la lueur d'ambiance et la trame vivent
+  // désormais sur `body` (voir globals.css), qu'une surface opaque masquerait.
   return (
-    <div className="relative flex min-h-dvh flex-col bg-background">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] overflow-hidden"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse 60% 100% at 20% 0%, color-mix(in oklch, var(--primary), transparent 92%), transparent), radial-gradient(ellipse 40% 80% at 85% 0%, color-mix(in oklch, var(--gold), transparent 94%), transparent)",
-        }}
-      />
+    <div className="relative flex min-h-dvh flex-col">
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[92rem] items-center justify-between gap-3 px-4 sm:px-6">
