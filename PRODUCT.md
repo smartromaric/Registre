@@ -1259,6 +1259,76 @@ Vérifié par `npm run lint` et `npm run build` après chaque étape — pas de
 suite de tests visuels automatisée pour ce lot (aucune dans ce projet à ce
 jour, cohérent avec le reste de `frontend/`).
 
+### 10.17 Charte couleur « corail » et graphiques Chart.js (2026-08-25)
+
+Seconde passe visuelle, après retour client : abandon du bleu, cartes jugées
+trop plates, graphiques trop pauvres.
+
+**Palette de marque.** Cinq couleurs fournies par le client (IndianRed,
+LightCoral, Salmon, DarkSalmon, LightSalmon), converties en OKLCH depuis
+leurs valeurs sRGB exactes. Teinte de marque : **28°** (Salmon). Deux écarts
+avec la liste brute, documentés en tête de `globals.css` :
+
+- Les cinq couleurs sont toutes claires (L 0,61 → 0,79) : aucune ne porte du
+  texte blanc lisible en fond de bouton. Le thème clair utilise donc un
+  corail assombri **à la même teinte** ; le thème sombre utilise le Salmon
+  exact, parfaitement lisible sur fond sombre.
+- **La marque et l'alarme ne peuvent pas être la même couleur.** La palette
+  est entièrement rouge-orangée, or le produit doit distinguer « action de
+  marque » et « échéance en retard » d'un coup d'œil. `--destructive`
+  descend donc à 15° (plus sombre, plus saturé), `--warning` remonte à 65°
+  (ambre) et `--success` part sur le vert-sarcelle (165°). Le garde-fou
+  réel reste la règle du §7.2 : la couleur n'est jamais seule porteuse d'un
+  état, un mot l'accompagne toujours.
+
+Neutres volontairement tièdes (~40°, chroma < 0,02) : un gris bleuté sous un
+accent corail donne un rendu « pas choisi ». Icônes PWA, manifeste et
+`theme-color` alignés.
+
+**Graphiques** (`lib/chart-theme.ts`, `components/dashboard/chart-canvas.tsx`) :
+les barres en `div` Tailwind deviennent de vrais graphiques Chart.js. Le
+point non évident : l'analyseur de couleurs interne de Chart.js ne connaît
+pas `oklch()` et rend du **noir**. Chaque jeton est donc peint dans un
+canevas 1×1 puis relu en `rgba` — c'est le navigateur qui fait la
+conversion, aucune couleur n'est écrite en dur. Une sentinelle détecte le
+cas où `fillStyle` conserve silencieusement sa valeur précédente sur une
+entrée illisible, et `getImageData` est protégé (un navigateur qui bride la
+lecture de canevas fait retomber sur le substitut accessible plutôt que sur
+une page blanche). L'observateur de mutations sur `<html>` est nécessaire :
+`resolvedTheme` change *avant* que next-themes ne pose la classe, s'y fier
+seul relirait l'ancienne palette. Chaque canevas est doublé d'un tableau
+lisible par lecteur d'écran — un canevas est invisible aux technologies
+d'assistance.
+
+**Aucun segment de graphique n'est cliquable**, volontairement : vérifié
+contre les données réelles, aucun ne correspond exactement à une liste
+existante (le graphique des échéances par mois est non borné côté backend,
+là où le drilldown « à venir » couvre 30 jours — un clic ouvrirait une liste
+qui ne correspond pas à la barre). Cohérent avec le §10.5 : plutôt inerte
+que faussement navigable.
+
+**Barre latérale** : collée au bord de la fenêtre (elle vivait dans le
+conteneur centré, laissant une bande vide sur écran large), rail d'icônes
+par défaut, dépliée au survol, épinglable d'un clic. La largeur *dans le
+flux* ne suit que l'épinglage, la largeur *visuelle* suit le survol — sans
+cette séparation, un simple passage de souris pousserait toute la page puis
+la ramènerait.
+
+**Deux bugs corrigés dans la foulée**, tous deux trouvés en usage réel :
+
+- La palette de commandes (Ctrl+K) plantait à l'ouverture : `CommandDialog`
+  n'enveloppait jamais ses enfants dans la racine `cmdk`, donc `CommandInput`
+  lisait un store `undefined`. Le titre accessible était par ailleurs posé
+  hors de `DialogContent`, là où Radix ne le voit pas.
+- Les vignettes de document/photo du **formulaire d'édition** cessaient de
+  s'afficher quelques minutes après le téléversement : `documents-cache.ts`
+  mémorisait l'URL signée en `localStorage`, or celle-ci expire au bout de
+  300 s. Le champ `url` a été retiré du cache (seules les métadonnées
+  stables y restent) et le formulaire redemande désormais une URL fraîche,
+  comme le faisait déjà la vue lecture. C'était une **seconde** cause du
+  symptôme « l'image ne s'affiche pas », distincte du lien relatif corrigé
+  au §10.15.
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans

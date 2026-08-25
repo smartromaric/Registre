@@ -83,7 +83,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_UPLOAD_BYTES } from "@/lib/api/documents";
+import { MAX_UPLOAD_BYTES, getDocument } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/errors";
 import { getModelDefinition } from "@/lib/api/model-definitions";
 import { getRecord } from "@/lib/api/records";
@@ -1031,6 +1031,24 @@ function useDropzoneHandlers(disabled: boolean, onFiles: (files: File[]) => void
   return { dragging, setDragging, inputRef, onDrop, onInputChange };
 }
 
+/** URL signée **fraîche** pour un document déjà téléversé. Jamais celle du
+ * cache local : elle expire au bout de 5 minutes (voir `documents-cache.ts`).
+ * Même requête que la vue lecture (`field-value.tsx`), donc même entrée de
+ * cache React Query — ouvrir la fiche puis l'éditer ne relance pas d'appel. */
+function useFreshDocumentUrl(documentId: string | null, uploadContext?: UploadContext) {
+  const organizationId = uploadContext?.organizationId;
+  const recordId = uploadContext?.recordId;
+  const accessToken = uploadContext?.accessToken;
+  return useQuery({
+    queryKey: ["document", organizationId, recordId, documentId],
+    queryFn: () =>
+      getDocument(accessToken as string, organizationId as string, recordId as string, documentId as string),
+    enabled: Boolean(documentId && organizationId && recordId && accessToken),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 function DocumentAttachment({
   documentId,
   onChange,
@@ -1049,6 +1067,7 @@ function DocumentAttachment({
   const [uploading, setUploading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const cached = uploadContext && documentId ? getCachedDocument(uploadContext.organizationId, documentId) : null;
+  const fresh = useFreshDocumentUrl(documentId, uploadContext);
   const canUpload = Boolean(uploadContext?.recordId) && !disabled;
 
   const handleFiles = useCallback(
@@ -1089,7 +1108,7 @@ function DocumentAttachment({
     <div className="space-y-2">
       {documentId ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-          {cached ? (
+          {fresh.data ? (
             <button
               type="button"
               onClick={() => setViewerOpen(true)}
@@ -1097,14 +1116,16 @@ function DocumentAttachment({
             >
               <FileText className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate underline-offset-2 hover:underline">
-                {cached.filename}
-                <span className="ml-1.5 text-xs text-muted-foreground">{formatFileSize(cached.size_bytes)}</span>
+                {fresh.data.filename}
+                <span className="ml-1.5 text-xs text-muted-foreground">{formatFileSize(fresh.data.size_bytes)}</span>
               </span>
             </button>
           ) : (
             <>
               <FileText className="size-4 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{`Document joint (${documentId.slice(0, 8)}…)`}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {cached ? cached.filename : `Document joint (${documentId.slice(0, 8)}…)`}
+              </span>
             </>
           )}
           {!disabled ? (
@@ -1120,13 +1141,13 @@ function DocumentAttachment({
           ) : null}
         </div>
       ) : null}
-      {cached ? (
+      {fresh.data ? (
         <MediaViewer
           open={viewerOpen}
           onOpenChange={setViewerOpen}
-          url={cached.url}
-          filename={cached.filename}
-          contentType={cached.content_type}
+          url={fresh.data.url}
+          filename={fresh.data.filename}
+          contentType={fresh.data.content_type}
         />
       ) : null}
 
@@ -1183,8 +1204,7 @@ function PhotosAttachment({
   const [uploading, setUploading] = useState(false);
   const [viewerDocumentId, setViewerDocumentId] = useState<string | null>(null);
   const canUpload = Boolean(uploadContext?.recordId) && !disabled;
-  const viewerDocument =
-    uploadContext && viewerDocumentId ? getCachedDocument(uploadContext.organizationId, viewerDocumentId) : null;
+  const viewerDocument = useFreshDocumentUrl(viewerDocumentId, uploadContext);
 
   const handleFiles = useCallback(
     async (files: File[]) => {
@@ -1229,39 +1249,16 @@ function PhotosAttachment({
     <div className="space-y-2">
       {documentIds.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {documentIds.map((id) => {
-            const cached = uploadContext ? getCachedDocument(uploadContext.organizationId, id) : null;
-            return (
-              <div
-                key={id}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pr-1 pl-1 text-xs"
-              >
-                {cached ? (
-                  <button type="button" onClick={() => setViewerDocumentId(id)} className="flex items-center gap-1.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- URL signée, aperçu immédiat */}
-                    <img src={cached.url} alt={cached.filename} className="size-6 rounded object-cover" />
-                    <span className="max-w-32 truncate underline-offset-2 hover:underline">{cached.filename}</span>
-                  </button>
-                ) : (
-                  <span className="flex items-center gap-1.5 pl-1">
-                    <ImageIcon className="size-3.5 text-muted-foreground" />
-                    <span className="max-w-32 truncate">{`${id.slice(0, 8)}…`}</span>
-                  </span>
-                )}
-                {!disabled ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Retirer la photo"
-                    onClick={() => onChange(documentIds.filter((existing) => existing !== id))}
-                  >
-                    <X className="size-3" />
-                  </Button>
-                ) : null}
-              </div>
-            );
-          })}
+          {documentIds.map((id) => (
+            <PhotoChip
+              key={id}
+              documentId={id}
+              uploadContext={uploadContext}
+              disabled={disabled}
+              onOpen={() => setViewerDocumentId(id)}
+              onRemove={() => onChange(documentIds.filter((existing) => existing !== id))}
+            />
+          ))}
         </div>
       ) : null}
 
@@ -1302,14 +1299,56 @@ function PhotosAttachment({
           />
         </div>
       )}
-      {viewerDocument ? (
+      {viewerDocument.data ? (
         <MediaViewer
           open={Boolean(viewerDocumentId)}
           onOpenChange={(open) => !open && setViewerDocumentId(null)}
-          url={viewerDocument.url}
-          filename={viewerDocument.filename}
-          contentType={viewerDocument.content_type}
+          url={viewerDocument.data.url}
+          filename={viewerDocument.data.filename}
+          contentType={viewerDocument.data.content_type}
         />
+      ) : null}
+    </div>
+  );
+}
+
+/** Une photo déjà téléversée dans le formulaire d'édition : vignette cliquable
+ * si son URL fraîche est disponible, repli honnête sur le nom connu sinon. */
+function PhotoChip({
+  documentId,
+  uploadContext,
+  disabled,
+  onOpen,
+  onRemove,
+}: {
+  documentId: string;
+  uploadContext?: UploadContext;
+  disabled: boolean;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  const fresh = useFreshDocumentUrl(documentId, uploadContext);
+  const cached = uploadContext ? getCachedDocument(uploadContext.organizationId, documentId) : null;
+  const label = fresh.data?.filename ?? cached?.filename ?? `${documentId.slice(0, 8)}…`;
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 p-1 text-xs">
+      {fresh.data ? (
+        <button type="button" onClick={onOpen} className="flex items-center gap-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- URL signée à courte durée de vie, hors domaine configurable pour next/image */}
+          <img src={fresh.data.url} alt={label} className="size-6 rounded object-cover" />
+          <span className="max-w-32 truncate underline-offset-2 hover:underline">{label}</span>
+        </button>
+      ) : (
+        <span className="flex items-center gap-1.5 pl-1">
+          <ImageIcon className="size-3.5 text-muted-foreground" />
+          <span className="max-w-32 truncate">{label}</span>
+        </span>
+      )}
+      {!disabled ? (
+        <Button type="button" variant="ghost" size="icon-xs" aria-label="Retirer la photo" onClick={onRemove}>
+          <X className="size-3" />
+        </Button>
       ) : null}
     </div>
   );

@@ -12,12 +12,17 @@ import type { DocumentWithUrlOut } from "./api/types";
  * Portée : `localStorage`, par organisation.
  */
 
+/** Volontairement **sans** l'URL du fichier : une URL signée expire au bout de
+ * `SIGNED_URL_EXPIRE_SECONDS` (300 s côté backend). La conserver ici donnerait
+ * un lien mort quelques minutes après le téléversement — c'était la cause d'une
+ * vignette qui cessait de s'afficher sans raison apparente. Seules les
+ * métadonnées réellement stables sont mémorisées ; pour afficher le fichier,
+ * on redemande toujours une URL fraîche (`getDocument`). */
 export interface CachedDocument {
   id: string;
   filename: string;
   content_type: string;
   size_bytes: number;
-  url: string;
   field_key: string | null;
   record_id: string;
 }
@@ -51,7 +56,6 @@ export function rememberDocument(organizationId: string, doc: DocumentWithUrlOut
     filename: doc.filename,
     content_type: doc.content_type,
     size_bytes: doc.size_bytes,
-    url: doc.url,
     field_key: doc.field_key,
     record_id: doc.record_id,
   };
