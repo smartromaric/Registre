@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock import ArticleConfig, ArticleVariant, ConsignmentLevel, Depot, StockLevel, StockLot
+from app.models.stock import ArticleConfig, ArticleVariant, ConsignmentLevel, Depot, StockLevel, StockLot, StockMovement
 
 
 class StockRepository:
@@ -74,6 +74,17 @@ class StockRepository:
             StockLot.variant_id == variant_id, StockLot.depot_id == depot_id, StockLot.lot_number == lot_number
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    # --- idempotence des opérations (§11.4) -------------------------------------------
+
+    async def list_movements_by_client_operation(
+        self, organization_id: uuid.UUID, client_operation_id: uuid.UUID
+    ) -> list[StockMovement]:
+        stmt = select(StockMovement).where(
+            StockMovement.organization_id == organization_id,
+            StockMovement.client_operation_id == client_operation_id,
+        )
+        return list((await self.db.execute(stmt)).scalars().all())
 
     # --- consignation --------------------------------------------------------------
 

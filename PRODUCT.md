@@ -466,6 +466,38 @@ ultérieur, §12.4 — le modèle `Payment` est conçu pour l'accueillir sans
 réécriture), téléversement d'une capture du reçu de paiement, annonces de
 l'éditeur aux organisations, statistiques d'activité du service.
 
+### 10.6 Fondation posée en avance pour le lot 5 (hors-ligne) : identifiants côté client
+
+Le cahier des charges est explicite (§11.4) : « le hors-ligne ne peut pas être
+ajouté après coup » — trois décisions doivent être prises dès les fondations,
+avant même que le lot 5 ne soit construit. Deux étaient déjà acquises depuis le
+lot 0/2 (mouvements de stock additifs et immuables, §7.3 ; journal d'opérations
+via le journal d'audit). La troisième — **identifiants générés côté client** —
+manquait : les fiches et les mouvements de stock laissaient jusqu'ici le serveur
+choisir l'identifiant, ce qui aurait bloqué toute création faite hors connexion
+(l'appareil doit pouvoir nommer l'objet qu'il crée avant de savoir si et quand
+il pourra joindre le serveur).
+
+Corrigé maintenant plutôt que d'attendre le lot 5, précisément pour ne pas avoir
+à revenir sur des schémas déjà utilisés en production :
+
+- `POST .../records` accepte un `id` optionnel. Absent (client web en ligne) :
+  le serveur en génère un, comportement inchangé. Fourni : une resoumission
+  avec le même `id` renvoie la fiche déjà créée au lieu d'en produire une
+  seconde — le cas exact d'une synchronisation interrompue juste après
+  l'écriture, avant que la réponse ne revienne à l'appareil.
+- Les quatre routes de mouvement de stock (`entry`, `exit`, `adjustment`,
+  `transfer`) acceptent un `client_operation_id`, **distinct** de l'identifiant
+  de chaque ligne : une sortie avec suivi de lots peut produire plusieurs
+  mouvements (un par lot consommé en FIFO), qui partagent volontairement cette
+  valeur — la détection de resoumission se fait donc côté service (recherche
+  avant écriture), pas via une contrainte d'unicité en base, qui ne pourrait
+  pas exprimer correctement « une opération, plusieurs lignes ».
+- Vérifié à la fois en test (`tests/test_offline_idempotency.py`) et en
+  conditions réelles via l'API : soumettre deux fois la même création avec le
+  même identifiant ne produit jamais de doublon, ni pour une fiche ni pour un
+  mouvement de stock.
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans

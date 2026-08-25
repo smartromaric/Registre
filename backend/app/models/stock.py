@@ -98,6 +98,16 @@ class StockMovement(UUIDPrimaryKeyMixin, OrgScopedMixin, Base):
 
     __tablename__ = "stock_movements"
 
+    # §11.4 : identifiant généré côté client pour l'opération DEMANDÉE (une sortie
+    # avec suivi de lots peut produire plusieurs lignes, une par lot consommé —
+    # distinct de `id`, qui reste propre à chaque ligne, donc pas de contrainte
+    # d'unicité DB ici : une même opération partage volontairement cette valeur
+    # sur plusieurs lignes). La détection d'une resoumission après synchronisation
+    # interrompue se fait donc côté service (StockService._check_idempotent),
+    # avant toute écriture — suffisant pour un appareil qui rejoue sa propre file
+    # séquentiellement, le scénario réel du mode hors-ligne (§11.3).
+    client_operation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
+
     variant_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("article_variants.id"), nullable=False, index=True
     )

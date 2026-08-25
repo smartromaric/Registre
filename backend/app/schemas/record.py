@@ -6,6 +6,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RecordCreate(BaseModel):
+    # Cahier des charges §11.4 : « les identifiants sont générés côté client »
+    # — condition posée dès les fondations pour que le mode hors-ligne (lot 5)
+    # n'ait jamais à réécrire ce socle. Absent (cas normal aujourd'hui, client web
+    # en ligne) : le serveur en génère un. Fourni (agent de terrain ayant créé la
+    # fiche hors connexion) : une resoumission avec le même id est un jeu sans
+    # effet — voir RecordService.create.
+    id: uuid.UUID | None = None
     data: dict[str, Any] = {}
     status: str | None = None
     site: str | None = None

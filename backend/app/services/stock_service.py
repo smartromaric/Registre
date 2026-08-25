@@ -231,6 +231,8 @@ class StockService:
     ) -> list[StockMovement]:
         if not role_can(actor_membership.role, Action.STOCK_MOVEMENT):
             raise PermissionDeniedError("Vous n'avez pas le droit de saisir un mouvement de stock.")
+        if (replay := await self._check_idempotent(organization_id, payload.client_operation_id)) is not None:
+            return replay
         variant = await self._require_variant(organization_id, payload.variant_id)
         config = await self._require_config(variant)
 
@@ -243,6 +245,7 @@ class StockService:
 
         movement = StockMovement(
             organization_id=organization_id,
+            client_operation_id=payload.client_operation_id,
             variant_id=variant.id,
             depot_id=payload.depot_id,
             movement_type=MovementType.ENTRY,
@@ -275,6 +278,8 @@ class StockService:
     ) -> list[StockMovement]:
         if not role_can(actor_membership.role, Action.STOCK_MOVEMENT):
             raise PermissionDeniedError("Vous n'avez pas le droit de saisir un mouvement de stock.")
+        if (replay := await self._check_idempotent(organization_id, payload.client_operation_id)) is not None:
+            return replay
         variant = await self._require_variant(organization_id, payload.variant_id)
         config = await self._require_config(variant)
 
@@ -318,6 +323,7 @@ class StockService:
     ) -> StockMovement:
         return StockMovement(
             organization_id=organization_id,
+            client_operation_id=payload.client_operation_id,
             variant_id=variant_id,
             depot_id=payload.depot_id,
             movement_type=MovementType.EXIT,
@@ -336,6 +342,8 @@ class StockService:
     ) -> StockMovement:
         if not role_can(actor_membership.role, Action.STOCK_MOVEMENT):
             raise PermissionDeniedError("Vous n'avez pas le droit de saisir un ajustement.")
+        if (replay := await self._check_idempotent(organization_id, payload.client_operation_id)) is not None:
+            return replay[0]
         variant = await self._require_variant(organization_id, payload.variant_id)
 
         level = await self.repo.get_stock_level(variant.id, payload.depot_id)
@@ -344,6 +352,7 @@ class StockService:
 
         movement = StockMovement(
             organization_id=organization_id,
+            client_operation_id=payload.client_operation_id,
             variant_id=variant.id,
             depot_id=payload.depot_id,
             movement_type=MovementType.ADJUSTMENT,
@@ -374,11 +383,16 @@ class StockService:
             raise PermissionDeniedError("Vous n'avez pas le droit de saisir un transfert.")
         if payload.from_depot_id == payload.to_depot_id:
             raise StockError("Le dépôt d'origine et de destination doivent être différents.")
+        if (replay := await self._check_idempotent(organization_id, payload.client_operation_id)) is not None:
+            out_replay = next(m for m in replay if m.movement_type == MovementType.TRANSFER_OUT)
+            in_replay = next(m for m in replay if m.movement_type == MovementType.TRANSFER_IN)
+            return out_replay, in_replay
         variant = await self._require_variant(organization_id, payload.variant_id)
 
         group_id = uuid.uuid4()
         out_movement = StockMovement(
             organization_id=organization_id,
+            client_operation_id=payload.client_operation_id,
             variant_id=variant.id,
             depot_id=payload.from_depot_id,
             movement_type=MovementType.TRANSFER_OUT,
@@ -389,6 +403,7 @@ class StockService:
         )
         in_movement = StockMovement(
             organization_id=organization_id,
+            client_operation_id=payload.client_operation_id,
             variant_id=variant.id,
             depot_id=payload.to_depot_id,
             movement_type=MovementType.TRANSFER_IN,
@@ -490,6 +505,19 @@ class StockService:
         return await self.repo.list_stock_levels(organization_id, variant_id=variant_id, depot_id=depot_id)
 
     # --- internes ---------------------------------------------------------------------
+
+    async def _check_idempotent(
+        self, organization_id: uuid.UUID, client_operation_id: uuid.UUID | None
+    ) -> list[StockMovement] | None:
+        """§11.4 : une resoumission (après synchronisation interrompue) du même
+        identifiant d'opération renvoie ce qui a déjà été écrit plutôt que de
+        rejouer l'effet — sans quoi une sortie de stock rejouée deux fois
+        soustrairait deux fois la quantité.
+        """
+        if client_operation_id is None:
+            return None
+        existing = await self.repo.list_movements_by_client_operation(organization_id, client_operation_id)
+        return existing or None
 
     async def _require_variant(self, organization_id: uuid.UUID, variant_id: uuid.UUID) -> ArticleVariant:
         variant = await self.repo.get_variant(variant_id)

@@ -71,9 +71,20 @@ class RecordService:
         status: str | None,
         site: str | None,
         assigned_person_record_id: uuid.UUID | None,
+        record_id: uuid.UUID | None = None,
     ) -> Record:
         if not role_can(actor_membership.role, Action.CREATE_EDIT_RECORD):
             raise PermissionDeniedError("Vous n'avez pas le droit de créer une fiche.")
+
+        # §11.4 : un identifiant généré côté client rend la création rejouable
+        # sans effet — une resoumission après une synchronisation interrompue
+        # (coupure réseau juste après l'écriture, avant que la réponse ne
+        # revienne à l'appareil) renvoie la fiche déjà créée plutôt que d'en
+        # produire une seconde.
+        if record_id is not None:
+            existing = await self.get(organization_id, record_id)
+            if existing is not None:
+                return existing
 
         normalized = validate_and_normalize(model.field_definitions, data, partial=False)
         await self._check_uniqueness(organization_id, model, normalized)
@@ -88,6 +99,8 @@ class RecordService:
             created_by_user_id=actor.id,
             updated_by_user_id=actor.id,
         )
+        if record_id is not None:
+            record.id = record_id
         self.db.add(record)
         await self.db.flush()
 

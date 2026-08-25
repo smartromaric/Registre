@@ -76,6 +76,8 @@ class ThresholdSet(BaseModel):
 
 
 class MovementCreate(BaseModel):
+    # §11.4 : identifiant d'opération généré côté client — voir StockMovement.client_operation_id.
+    client_operation_id: uuid.UUID | None = None
     variant_id: uuid.UUID
     depot_id: uuid.UUID
     quantity: int = Field(gt=0)
@@ -90,6 +92,7 @@ class MovementCreate(BaseModel):
 
 
 class AdjustmentCreate(BaseModel):
+    client_operation_id: uuid.UUID | None = None
     variant_id: uuid.UUID
     depot_id: uuid.UUID
     counted_quantity: int = Field(ge=0)
@@ -97,6 +100,7 @@ class AdjustmentCreate(BaseModel):
 
 
 class TransferCreate(BaseModel):
+    client_operation_id: uuid.UUID | None = None
     variant_id: uuid.UUID
     from_depot_id: uuid.UUID
     to_depot_id: uuid.UUID
@@ -107,6 +111,7 @@ class TransferCreate(BaseModel):
 class MovementOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    client_operation_id: uuid.UUID | None
     variant_id: uuid.UUID
     depot_id: uuid.UUID
     movement_type: str

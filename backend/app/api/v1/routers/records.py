@@ -109,6 +109,7 @@ async def create_record(
             status=payload.status,
             site=payload.site,
             assigned_person_record_id=payload.assigned_person_record_id,
+            record_id=payload.id,
         )
     except PermissionDeniedError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
