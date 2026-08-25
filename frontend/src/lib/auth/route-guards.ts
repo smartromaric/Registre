@@ -42,17 +42,22 @@ export function useRequireOnboarding(): void {
 /** (app)/* : réservé aux comptes authentifiés avec au moins une organisation. */
 export function useRequireOrganization(): void {
   const router = useRouter();
-  const { status, organizations, organizationsLoading } = useAuth();
+  const { status, organizations, organizationsLoading, organizationsError } = useAuth();
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
       return;
     }
-    if (status === "authenticated" && !organizationsLoading && organizations.length === 0) {
+    // `organizationsError` est vérifié explicitement : une liste vide parce que
+    // l'appel a échoué n'est pas la même chose qu'une liste vide parce que le
+    // compte n'a pas encore d'organisation. Sans ce garde, une coupure réseau
+    // envoyait vers l'onboarding un utilisateur qui a pourtant des
+    // organisations, en lui demandant d'en créer une.
+    if (status === "authenticated" && !organizationsLoading && !organizationsError && organizations.length === 0) {
       router.replace("/onboarding");
     }
-  }, [status, organizations, organizationsLoading, router]);
+  }, [status, organizations, organizationsLoading, organizationsError, router]);
 }
 
 /** (editor)/* : réservé aux utilisateurs `is_platform_admin` (cahier des

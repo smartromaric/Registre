@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -71,14 +70,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // valeur effective (ci-dessous) retombe sur la préférence stockée puis la
   // première organisation, en état dérivé plutôt que synchronisé par un effet.
   const [explicitOrganizationId, setExplicitOrganizationId] = useState<string | null>(null);
-  const bootstrapped = useRef(false);
   const queryClient = useQueryClient();
 
   // Reconstruit la session au chargement à partir du cookie httpOnly de refresh.
   // Un échec ici est l'état normal d'un visiteur non connecté, pas une erreur à afficher.
+  //
+  // Pas de garde `useRef` « déjà amorcé » ici, et c'est délibéré : le mode strict
+  // de React (actif par défaut en développement) monte, démonte puis remonte le
+  // composant. Avec une telle garde, le second passage sortait immédiatement sans
+  // relancer d'appel, tandis que le premier — déjà annulé par le nettoyage — ne
+  // posait jamais `status`. Résultat : `status` restait « loading » pour
+  // toujours, donc un écran de patience infini à chaque rechargement de page
+  // (se connecter refonctionnait, puisque `login` pose `status` directement).
+  // Le drapeau `cancelled` suffit : le passage annulé n'écrit rien, le suivant
+  // repart de zéro et conclut.
   useEffect(() => {
-    if (bootstrapped.current) return;
-    bootstrapped.current = true;
     let cancelled = false;
 
     (async () => {

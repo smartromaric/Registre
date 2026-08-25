@@ -2,12 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, LogOut, Search, ShieldCheck } from "lucide-react";
 
 import { AppSidebar, ModelsNavMenu } from "@/components/app-nav";
 import { Logo } from "@/components/brand/logo";
 import { SplashScreen } from "@/components/brand/splash-screen";
 import { CommandPalette } from "@/components/command-palette";
+import { ErrorState } from "@/components/state-views";
 import { OfflineStatusIndicator } from "@/components/offline/offline-status-indicator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -39,10 +41,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     user,
     organizations,
     organizationsLoading,
+    organizationsError,
     currentOrganization,
     setCurrentOrganizationId,
     logout,
   } = useAuth();
+  const queryClient = useQueryClient();
 
   // Palette de commandes (Cmd/Ctrl K — PRODUCT.md §7.2) : un seul endroit qui
   // possède l'état d'ouverture, partagé par le raccourci clavier global et le
@@ -62,6 +66,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // Tant que la session, la liste d'organisations ou l'organisation courante ne
   // sont pas connues, on affiche un état de patience — jamais un shell vide qui
   // laisserait croire que "aucune organisation" est un résultat définitif.
+  // Un échec de chargement des organisations doit se dire, jamais se déguiser en
+  // attente : sans ce cas, la coquille restait sur l'écran de patience sans que
+  // rien ne puisse plus le débloquer.
+  if (status === "authenticated" && organizationsError) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-6">
+        <ErrorState
+          message={organizationsError.message}
+          onRetry={() => queryClient.invalidateQueries({ queryKey: ["organizations"] })}
+        />
+      </div>
+    );
+  }
+
   if (status !== "authenticated" || organizationsLoading || !currentOrganization) {
     return <SplashScreen />;
   }
