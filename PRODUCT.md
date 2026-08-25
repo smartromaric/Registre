@@ -274,7 +274,7 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 0 | Fondations (auth, orgs cloisonnées/RLS, rôles, stockage fichiers, journal d'audit) | ✅ |
 | 1 | Moteur de fiches, actifs suivis, échéances, notifications, modèle Véhicule | ✅ |
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
-| 3 | Recherche, vues, import/export, tableaux de bord focalisables | ⬜ |
+| 3 | Recherche, vues, import/export, tableaux de bord focalisables | 🔶 (dashboards restants) |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ⬜ |
 | 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
@@ -383,6 +383,47 @@ attend un environnement avec Redis provisionné — en attendant, `POST
 Non fait volontairement : suivi nominatif des consignes par client (explicitement hors
 périmètre v1, §7.6), achat de stockage supplémentaire (lot 4), écran de saisie
 mobile-first pour les mouvements (frontend, lot suivant).
+
+### 10.4 Détail du lot 3 livré (partiel — reste : tableaux de bord focalisables)
+
+- **Filtres et tri** (§9) : la liste des fiches accepte des filtres d'égalité sur tout
+  champ marqué filtrable (`?filters={"marque":"Toyota"}`) et un tri sur n'importe
+  quelle colonne, y compris un champ personnalisé (tri sur sa représentation texte
+  dans le JSONB).
+- **Recherche globale** (§9) : une barre unique cherche par sous-chaîne dans les
+  champs texte marqués filtrables de tous les modèles, plus le champ-titre de
+  chacun. Limite assumée : recherche par `ILIKE`, pas encore d'index trigram —
+  suffisant aux volumes visés (PRODUCT.md §4, hypothèse Q6), à revisiter si le
+  volume réel s'avère bien supérieur.
+- **Vues enregistrées** (§9) : un jeu de filtres/colonnes/tri nommé et retrouvé,
+  privé à son créateur en v1 (le partage entre collègues est un raffinement
+  possible sans changer la table).
+- **Export** (§9) : la vue courante (filtres + colonnes) exportée en CSV, respecte
+  les libellés des champs. Plafonné à 10 000 lignes par export (au-delà, un export
+  en tâche de fond serait nécessaire — non construit, volume jugé suffisant).
+- **Import initial** (§9, §18.1) : reprise d'un fichier CSV, correspondance des
+  colonnes suggérée automatiquement (comparaison des en-têtes aux libellés/clés de
+  champs), aperçu qui signale précisément quelles lignes échoueraient et pourquoi
+  **avant** validation, puis import qui crée ce qui est valide et rapporte le
+  reste — jamais un tout-ou-rien qui bloquerait 197 lignes correctes à cause de 3
+  fautives. Limite assumée : CSV encodé en UTF-8 uniquement, dates au format
+  AAAA-MM-JJ ; la reprise directe de classeurs .xlsx est un raffinement possible
+  sans changer cette mécanique.
+
+**Deux bugs réels trouvés en testant le parcours complet via l'API (pas seulement
+via les tests automatisés)**, corrigés au passage : (1) un paramètre de formulaire
+mêlé à un fichier téléversé (`mapping` pour l'import, `field_key` pour un document)
+était traité comme paramètre de requête plutôt que champ de formulaire — FastAPI
+exige `Form(...)` explicitement dès qu'un `UploadFile` est présent dans la même
+route ; (2) le téléversement d'un document échouait systématiquement (erreur 500)
+car la réponse tentait de valider un objet Pydantic exigeant une URL signée
+directement depuis l'objet base de données, qui ne porte pas cet attribut — présent
+depuis le lot 1, jamais exercé en conditions réelles jusqu'ici. Un test HTTP dédié
+(`tests/test_documents.py`) couvre maintenant ce chemin.
+
+Reste pour clore le lot 3 : les tableaux de bord globaux puis focalisables par
+modèle (§10.2 du cahier des charges) — la pièce la plus visible du lot, qui
+arrivera avec le prochain travail sur le frontend.
 
 ## 11. Manuel utilisateur
 

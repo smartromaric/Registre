@@ -10,6 +10,8 @@ from app.api.v1.routers import (
     model_definitions,
     organizations,
     records,
+    saved_views,
+    search,
     stock,
     templates,
 )
@@ -25,4 +27,6 @@ api_router.include_router(records.router)
 api_router.include_router(documents.router)
 api_router.include_router(alerts.router)
 api_router.include_router(stock.router)
+api_router.include_router(saved_views.router)
+api_router.include_router(search.router)
 api_router.include_router(files.router)

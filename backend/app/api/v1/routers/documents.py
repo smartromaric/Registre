@@ -1,13 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_org_context
 from app.models.membership import Membership
 from app.models.user import User
-from app.schemas.document import DocumentWithUrlOut
+from app.schemas.document import DocumentOut, DocumentWithUrlOut
 from app.services.document_service import DocumentService
 from app.services.record_service import RecordService
 
@@ -22,7 +22,7 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 async def upload_document(
     record_id: uuid.UUID,
     file: UploadFile,
-    field_key: str | None = None,
+    field_key: str | None = Form(default=None),
     user: User = Depends(get_current_user),
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
@@ -46,6 +46,6 @@ async def upload_document(
         data=data,
     )
     return DocumentWithUrlOut(
-        **DocumentWithUrlOut.model_validate(document, from_attributes=True).model_dump(exclude={"url"}),
+        **DocumentOut.model_validate(document).model_dump(),
         url=document_service.signed_url(document),
     )

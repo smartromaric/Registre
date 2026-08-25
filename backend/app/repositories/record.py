@@ -21,6 +21,9 @@ class RecordRepository:
         *,
         include_archived: bool = False,
         status: str | None = None,
+        field_filters: dict[str, str] | None = None,
+        sort_key: str | None = None,
+        sort_direction: str = "desc",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[Record], int]:
@@ -31,11 +34,29 @@ class RecordRepository:
             stmt = stmt.where(Record.is_archived.is_(False))
         if status:
             stmt = stmt.where(Record.status == status)
+        # Cahier des charges §9 : filtres combinables sur tout champ marqué filtrable
+        # — égalité simple en v1 (voir SavedView pour les raffinements possibles).
+        for key, value in (field_filters or {}).items():
+            stmt = stmt.where(Record.data[key].astext == value)
 
         total = (await self.db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
-        stmt = stmt.order_by(Record.created_at.desc()).limit(limit).offset(offset)
+
+        order_column = self._sort_column(sort_key)
+        order_column = order_column.desc() if sort_direction == "desc" else order_column.asc()
+        stmt = stmt.order_by(order_column).limit(limit).offset(offset)
         rows = list((await self.db.execute(stmt)).scalars().all())
         return rows, total
+
+    @staticmethod
+    def _sort_column(sort_key: str | None):
+        if sort_key in (None, "created_at"):
+            return Record.created_at
+        if sort_key == "updated_at":
+            return Record.updated_at
+        if sort_key == "status":
+            return Record.status
+        # Un champ personnalisé : tri sur sa représentation texte dans le JSONB.
+        return Record.data[sort_key].astext
 
     async def check_unique_value(
         self,

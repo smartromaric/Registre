@@ -36,6 +36,9 @@ class RecordService:
         *,
         include_archived: bool = False,
         status: str | None = None,
+        field_filters: dict[str, str] | None = None,
+        sort_key: str | None = None,
+        sort_direction: str = "desc",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[Record], int]:
@@ -44,6 +47,9 @@ class RecordService:
             model_definition_id,
             include_archived=include_archived,
             status=status,
+            field_filters=field_filters,
+            sort_key=sort_key,
+            sort_direction=sort_direction,
             limit=limit,
             offset=offset,
         )

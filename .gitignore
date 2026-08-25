@@ -22,6 +22,7 @@ htmlcov/
 backend/.env
 backend/.env.*
 !backend/.env.example
+backend/var/
 
 # --- Alembic (garder les scripts, ignorer rien de spécial) ---
 

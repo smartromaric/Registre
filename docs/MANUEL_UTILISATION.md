@@ -13,6 +13,7 @@
 4. [Créer une fiche](#4-créer-une-fiche)
 5. [Comprendre le champ Échéance et les alertes](#5-comprendre-le-champ-échéance-et-les-alertes)
 6. [Gérer un stock](#6-gérer-un-stock)
+7. [Rechercher, filtrer, exporter et importer](#7-rechercher-filtrer-exporter-et-importer)
 
 ---
 
@@ -134,3 +135,24 @@ Pour un article **consigné** (le cas du gaz : la bouteille circule, seul le
 contenu se vend), deux actions supplémentaires suivent les bouteilles chez
 vos clients : « sortie pleine » (une bouteille pleine part chez un client) et
 « retour vide » (le client rapporte une bouteille vide).
+
+## 7. Rechercher, filtrer, exporter et importer
+
+- **Recherche** — une seule barre cherche dans toutes vos fiches, sur les
+  champs que vous avez marqués comme filtrables lors de la configuration du
+  modèle.
+- **Filtres** — sur la liste d'un modèle, combinez des filtres sur n'importe
+  quel champ filtrable pour ne voir que ce qui vous intéresse.
+- **Vues enregistrées** — un jeu de filtres et un tri que vous nommez et
+  retrouvez en un clic la prochaine fois. Chaque vue vous appartient ; vos
+  collègues ont les leurs.
+- **Export** — la liste actuellement affichée s'exporte en un fichier CSV
+  (ouvrable dans Excel ou tout tableur), avec les libellés de vos champs en
+  en-tête.
+- **Import** — pour reprendre un fichier existant : déposez-le, l'application
+  propose une correspondance entre les colonnes du fichier et les champs du
+  modèle (vous pouvez l'ajuster), puis vous montre un aperçu qui indique
+  précisément quelles lignes seraient rejetées et pourquoi, avant toute
+  validation. Une fois validé, l'import crée ce qui est valide et vous
+  signale le reste — vous ne perdez jamais 200 lignes correctes à cause de 3
+  fautives. Le fichier doit être un CSV, les dates au format AAAA-MM-JJ.

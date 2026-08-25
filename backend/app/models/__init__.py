@@ -7,6 +7,7 @@ from app.models.model_definition import FieldDefinition, ModelDefinition, Record
 from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.record import Record, RecordDeadline, RecordEvent
+from app.models.saved_view import SavedView
 from app.models.stock import (
     ArticleConfig,
     ArticleVariant,
@@ -33,6 +34,7 @@ __all__ = [
     "Record",
     "RecordEvent",
     "RecordDeadline",
+    "SavedView",
     "Document",
     "Alert",
     "AlertSourceType",
