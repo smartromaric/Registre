@@ -241,4 +241,43 @@
       0 0 0 1px color-mix(in oklch, var(--primary), transparent 85%),
       0 8px 40px -8px color-mix(in oklch, var(--primary), transparent 55%);
   }
+
+  /*
+   * Motif de carte : une trame de points fine surmontée d'un voile radial,
+   * tous deux teintés par `--card-accent` — un jeton posé par la carte
+   * elle-même (la tonalité de l'indicateur qu'elle porte), jamais une couleur
+   * en dur. Une carte qui ne définit pas ce jeton retombe sur la couleur de
+   * marque.
+   *
+   * Strictement décoratif : cette couche est posée `aria-hidden` DERRIÈRE le
+   * contenu et n'y porte aucune information. Les opacités sont volontairement
+   * très basses — la carte existe pour qu'on lise un chiffre d'un coup d'œil,
+   * un motif qui entrerait en concurrence avec lui serait un motif raté.
+   */
+  .card-motif {
+    --card-accent: var(--primary);
+    background-image:
+      radial-gradient(
+        circle at 1px 1px,
+        color-mix(in oklch, var(--card-accent), transparent 86%) 1px,
+        transparent 0
+      ),
+      radial-gradient(118% 92% at 100% 0%, color-mix(in oklch, var(--card-accent), transparent 88%), transparent 62%);
+    background-size:
+      15px 15px,
+      100% 100%;
+    background-repeat: repeat, no-repeat;
+  }
+
+  /* Sur fond sombre, une même opacité rend la trame quasi invisible et le
+     voile terne : les deux sont remontés d'un cran. */
+  .dark .card-motif {
+    background-image:
+      radial-gradient(
+        circle at 1px 1px,
+        color-mix(in oklch, var(--card-accent), transparent 80%) 1px,
+        transparent 0
+      ),
+      radial-gradient(118% 92% at 100% 0%, color-mix(in oklch, var(--card-accent), transparent 82%), transparent 62%);
+  }
 }

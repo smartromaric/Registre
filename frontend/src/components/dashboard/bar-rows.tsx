@@ -206,12 +206,19 @@ function truncate(label: string): string {
   return label.length > MAX_TICK_CHARS ? `${label.slice(0, MAX_TICK_CHARS - 1)}…` : label;
 }
 
-/** Encadré carte pour un graphique du tableau de bord — un titre, du contenu. */
+/** Encadré carte pour un graphique du tableau de bord — un titre, du contenu.
+ * Même motif que les tuiles d'indicateur (`.card-motif`, voir globals.css et
+ * `stat-tile.tsx`) pour que les deux familles de cartes du tableau de bord
+ * partagent un seul langage visuel. Teinte de marque : un graphique ne porte
+ * pas d'état, il n'a donc pas de tonalité propre. */
 export function ChartSection({ caption, children }: { caption: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 ring-1 ring-foreground/5">
-      <h3 className="text-sm font-medium text-foreground">{caption}</h3>
-      <ChartCaptionProvider caption={caption}>{children}</ChartCaptionProvider>
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card p-4 ring-1 ring-foreground/5">
+      <span aria-hidden className="card-motif pointer-events-none absolute inset-0 opacity-70" />
+      <h3 className="relative text-sm font-medium text-foreground">{caption}</h3>
+      <div className="relative">
+        <ChartCaptionProvider caption={caption}>{children}</ChartCaptionProvider>
+      </div>
     </div>
   );
 }

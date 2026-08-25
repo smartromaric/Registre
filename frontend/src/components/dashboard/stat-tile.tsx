@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { DUE_DATE_TONE_CLASSES, type DueDateTone } from "@/lib/due-date-status";
@@ -36,15 +36,26 @@ export interface StatTileProps {
   index?: number;
 }
 
+/** Jeton de couleur porté par chaque tonalité — sert à la fois au liseré et à
+ * la teinte du motif, pour qu'une carte n'ait jamais deux couleurs qui
+ * racontent deux choses différentes. */
 const TONE_ACCENT: Record<DueDateTone, string> = {
-  overdue: "before:bg-destructive",
-  urgent: "before:bg-warning",
-  upcoming: "before:bg-gold",
-  ok: "before:bg-transparent",
+  overdue: "var(--destructive)",
+  urgent: "var(--warning)",
+  upcoming: "var(--gold)",
+  ok: "var(--success)",
 };
+
+/** `ok` et les tuiles sans tonalité ne portent pas de liseré : ce sont les
+ * états « rien à signaler », ils n'ont pas à crier. Ils gardent en revanche le
+ * motif, dans une teinte de marque discrète. */
+const STRIPED_TONES = new Set<DueDateTone>(["overdue", "urgent", "upcoming"]);
 
 export function StatTile({ label, value, caption, tone, onClick, className, index = 0 }: StatTileProps) {
   const reduceMotion = useReducedMotion();
+  const accent = tone ? TONE_ACCENT[tone] : "var(--primary)";
+  const striped = tone ? STRIPED_TONES.has(tone) : false;
+
   const entrance = reduceMotion
     ? {}
     : {
@@ -54,8 +65,6 @@ export function StatTile({ label, value, caption, tone, onClick, className, inde
       };
   const shared = cn(
     "group/tile relative flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-4 text-left ring-1 ring-foreground/5",
-    "before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
-    tone ? TONE_ACCENT[tone] : "before:bg-transparent",
     onClick &&
       "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     className,
@@ -66,7 +75,9 @@ export function StatTile({ label, value, caption, tone, onClick, className, inde
           ? undefined
           : {
               y: -3,
-              boxShadow: "0 12px 28px -12px color-mix(in oklch, var(--primary), transparent 65%)",
+              // L'ombre reprend l'accent de la carte plutôt qu'un `primary`
+              // systématique : survoler une carte critique doit rester rouge.
+              boxShadow: `0 12px 28px -12px color-mix(in oklch, ${accent}, transparent 62%)`,
               transition: { type: "spring" as const, stiffness: 400, damping: 28 },
             },
         whileTap: reduceMotion ? undefined : { y: 0, scale: 0.99 },
@@ -75,35 +86,48 @@ export function StatTile({ label, value, caption, tone, onClick, className, inde
 
   const content = (
     <>
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="font-heading text-2xl font-semibold tabular-nums text-foreground">{value}</span>
-      {caption ? (
-        tone ? (
-          <span
-            className={cn(
-              "inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-              DUE_DATE_TONE_CLASSES[tone],
-            )}
-          >
-            <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
-            {caption}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{caption}</span>
-        )
+      <span
+        aria-hidden
+        className="card-motif pointer-events-none absolute inset-0 opacity-70 transition-opacity duration-300 group-hover/tile:opacity-100"
+      />
+      {striped ? (
+        <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: accent }} />
       ) : null}
+      <span className="relative flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="font-heading text-2xl font-semibold tabular-nums text-foreground">{value}</span>
+        {caption ? (
+          tone ? (
+            <span
+              className={cn(
+                "inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+                DUE_DATE_TONE_CLASSES[tone],
+              )}
+            >
+              <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+              {caption}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">{caption}</span>
+          )
+        ) : null}
+      </span>
     </>
   );
 
+  // `--card-accent` est lu par `.card-motif` (globals.css) : c'est lui qui
+  // teinte la trame et le voile de la carte.
+  const style = { "--card-accent": accent } as CSSProperties;
+
   if (onClick) {
     return (
-      <motion.button type="button" onClick={onClick} className={shared} {...entrance} {...hoverProps}>
+      <motion.button type="button" onClick={onClick} className={shared} style={style} {...entrance} {...hoverProps}>
         {content}
       </motion.button>
     );
   }
   return (
-    <motion.div className={shared} {...entrance}>
+    <motion.div className={shared} style={style} {...entrance}>
       {content}
     </motion.div>
   );
