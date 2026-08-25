@@ -2,13 +2,16 @@ import { cn } from "@/lib/utils";
 
 interface LogoProps {
   className?: string;
+  /** Override ciblé pour le nom de marque seul — ex. sur un panneau toujours
+   * sombre (`bg-veil`) où `text-foreground` suivrait à tort le thème clair. */
+  wordmarkClassName?: string;
   withWordmark?: boolean;
   size?: "sm" | "md";
 }
 
 /** Monogramme + nom de marque. Une icône géométrique abstraite (repère/étiquette de
  * registre), jamais une figure dessinée — voir playbook §7 sur les pièges du SVG figuratif. */
-export function Logo({ className, withWordmark = true, size = "md" }: LogoProps) {
+export function Logo({ className, wordmarkClassName, withWordmark = true, size = "md" }: LogoProps) {
   const boxSize = size === "sm" ? "size-7" : "size-8";
   const iconSize = size === "sm" ? "size-3.5" : "size-4";
   const textSize = size === "sm" ? "text-base" : "text-lg";
@@ -33,7 +36,7 @@ export function Logo({ className, withWordmark = true, size = "md" }: LogoProps)
         />
       </span>
       {withWordmark ? (
-        <span className={cn("font-heading font-semibold tracking-tight text-foreground", textSize)}>
+        <span className={cn("font-heading font-semibold tracking-tight text-foreground", textSize, wordmarkClassName)}>
           Registre
         </span>
       ) : null}

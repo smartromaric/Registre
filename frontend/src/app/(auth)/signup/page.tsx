@@ -6,13 +6,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
 
 import { AuthCard } from "@/components/auth/auth-card";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { FormField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { ApiError } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRedirectIfAuthenticated } from "@/lib/auth/route-guards";
@@ -130,7 +130,7 @@ export default function SignupPage() {
         </FormField>
 
         <Button type="submit" className="w-full" size="lg" disabled={busy}>
-          {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+          {isSubmitting ? <Spinner /> : null}
           Créer mon compte
         </Button>
       </form>

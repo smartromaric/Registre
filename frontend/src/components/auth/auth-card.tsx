@@ -24,7 +24,7 @@ export function AuthCard({ title, description, children, footer, className }: Au
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="w-full max-w-md"
     >
-      <Card className={cn("border-border/70 shadow-xl shadow-primary/[0.06]", className)}>
+      <Card className={cn("glow-primary border-border/70", className)}>
         <CardHeader className="gap-1.5 pt-6 pb-2 text-left">
           <CardTitle className="font-heading text-2xl font-semibold">{title}</CardTitle>
           {description ? <CardDescription className="text-sm">{description}</CardDescription> : null}

@@ -1,27 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 
 import { Providers } from "./providers";
 import "./globals.css";
 
-// Police de lecture courante : lisible, neutre, très bonne couverture des accents
-// français aux petites tailles (tableaux, formulaires — cahier des charges §14.7).
-const fontSans = Plus_Jakarta_Sans({
+// Une seule famille pour tout le texte courant et les titres (§ refonte visuelle
+// 2026-08-25 — direction "premium sobre" façon Linear/Vercel) : Geist a une
+// excellente couverture des accents français, et son poids monte jusqu'à 900,
+// assez pour donner du caractère aux titres (tracking resserré, voir
+// globals.css) sans jamais changer de famille — c'est cette cohérence qui lit
+// "outil d'ingénieur soigné" plutôt que "site vitrine avec une police d'accent".
+const fontSans = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-// Police d'accent pour les titres et les moments de marque (écrans d'auth,
-// en-têtes de section) : plus de caractère, sans sacrifier la lisibilité.
-const fontHeading = Space_Grotesk({
-  variable: "--font-heading",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// Réservée aux valeurs tabulaires (codes, montants alignés) — pas encore utilisée
-// dans ce lot, posée dès maintenant pour les écrans de fiches/stock à venir.
+// Valeurs tabulaires (codes, montants alignés, IDs) — chiffres à chasse fixe.
 const fontMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -43,7 +38,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbfaff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0f1a" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0f" },
   ],
 };
 
@@ -52,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="fr"
       suppressHydrationWarning
-      className={`${fontSans.variable} ${fontHeading.variable} ${fontMono.variable} h-full antialiased`}
+      className={`${fontSans.variable} ${fontMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Providers>{children}</Providers>

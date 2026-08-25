@@ -1214,6 +1214,51 @@ désormais une URL complète, alignée sur le contrat déjà respecté par le
 backend S3. Vérifié par la suite complète (83/83, y compris le test qui
 télécharge réellement depuis l'URL renvoyée) et en conditions réelles.
 
+### 10.16 Refonte visuelle (2026-08-25) — direction « premium sobre »
+
+Demande client explicite après retour sur le rendu initial (trop plat, aucun
+« pep »). Direction retenue après clarification : premium sobre façon
+Linear/Vercel, pas le kit d'animation au scroll du playbook fourni (adapté à
+un site vitrine, pas à un outil de saisie dense).
+
+- **Typographie** : une seule famille (Geist, `next/font/google`) pour texte
+  courant et titres — remplace Plus Jakarta Sans + Space Grotesk. Les titres
+  se distinguent par le poids (`font-semibold`) et un tracking resserré, pas
+  par une deuxième police. `--font-heading` reste un jeton à part entière
+  (des dizaines d'appels `font-heading` existants) mais pointe désormais vers
+  `--font-sans`.
+- **Couleurs** : fond sombre quasi noir (`oklch(0.1 ...)`, était un gris
+  ardoise moyen) — contraste texte/fond amélioré, pas dégradé. Accent
+  primaire légèrement plus saturé.
+- **Écrans d'authentification** : panneau de marque séparé sur grand écran
+  (fond dégradé animé + trame de points, trois fonctionnalités réellement
+  livrées — jamais un argument inventé), carte de formulaire avec une lueur
+  discrète.
+- **Chargement** : anneau dégradé tournant (`primary → gold`) remplace la
+  simple pulsation du logo — `SplashScreen` et un nouveau composant partagé
+  `Spinner` (boutons de soumission).
+- **Barre latérale** : repliable en rail à icônes seules, état mémorisé
+  (`useSyncExternalStore`, même remède que `lib/use-hydrated.ts` pour éviter
+  l'erreur ESLint `react-hooks/set-state-in-effect` sur un `useState`+`useEffect`
+  classique), icônes centrées en mode replié (un premier essai laissait un
+  espace vide visible à gauche des icônes, corrigé après retour utilisateur).
+- **Tuiles de tableau de bord** (`StatTile`) : liseré de couleur par tonalité
+  (redondant avec le mot, jamais son seul porteur — règle déjà en place),
+  levée douce + ombre au survol, entrée animée (fondu + décalage, délai
+  optionnel par rang pour un effet de vague).
+- **Coquille applicative** : lueur d'ambiance discrète en haut de page
+  (`primary`/`gold` à moins de 10 % d'opacité), derrière tout le contenu.
+
+Photo de personne pour l'écran de connexion : demandée par le client, en
+attente de son choix parmi trois photos sous licence Unsplash (usage
+commercial libre) proposées dans un aperçu séparé — aucune photo choisie au
+hasard sur internet sans validation, et aucune tentative de dessiner une
+personne en SVG (piège explicitement documenté par le playbook fourni).
+
+Vérifié par `npm run lint` et `npm run build` après chaque étape — pas de
+suite de tests visuels automatisée pour ce lot (aucune dans ce projet à ce
+jour, cohérent avec le reste de `frontend/`).
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans
