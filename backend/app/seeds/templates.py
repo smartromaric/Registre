@@ -200,12 +200,67 @@ TEMPLATES: dict[str, dict] = {
         "color": "#B26B00",
         "nature": RecordNature.STOCK_ITEM,
         "title_field_key": "nom",
+        # Une fiche d'article de stock décrit le **produit**, pas l'exemplaire :
+        # les formats (6 kg, 12,5 kg…) sont des variantes et les quantités des
+        # niveaux de stock (§7.2, §7.3). Les champs ci-dessous sont donc ceux
+        # qui distinguent deux produits l'un de l'autre, jamais ceux qui
+        # varieraient d'une bouteille à l'autre.
         "fields": [
             {"key": "nom", "label": "Nom", "field_type": FieldType.TEXT_SHORT, "is_required": True, "show_in_list": True},
+            {
+                "key": "type_gaz",
+                "label": "Type de gaz",
+                "field_type": FieldType.SELECT,
+                "select_options": [
+                    {"value": "butane", "label": "Butane"},
+                    {"value": "propane", "label": "Propane"},
+                    {"value": "melange", "label": "Mélange butane/propane"},
+                ],
+                "show_in_list": True,
+                "is_filterable": True,
+            },
+            {
+                "key": "marque",
+                "label": "Marque",
+                "field_type": FieldType.TEXT_SHORT,
+                "show_in_list": True,
+                "is_filterable": True,
+            },
+            {
+                "key": "usage",
+                "label": "Usage",
+                "field_type": FieldType.SELECT,
+                "select_options": [
+                    {"value": "domestique", "label": "Domestique"},
+                    {"value": "professionnel", "label": "Professionnel"},
+                    {"value": "industriel", "label": "Industriel"},
+                ],
+                "is_filterable": True,
+            },
+            {
+                "key": "reference",
+                "label": "Référence article",
+                "field_type": FieldType.CODE,
+                "help_text": "Référence fournisseur ou code-barres de l'article.",
+            },
+            {"key": "fournisseur", "label": "Fournisseur", "field_type": FieldType.TEXT_SHORT, "is_filterable": True},
+            {"key": "photo", "label": "Photo", "field_type": FieldType.PHOTO},
+            {
+                "key": "fiche_securite",
+                "label": "Fiche de données de sécurité",
+                "field_type": FieldType.DOCUMENT,
+                "help_text": "Document exigé pour tout produit dangereux — à tenir à disposition.",
+            },
+            {
+                "key": "consigne_unitaire",
+                "label": "Consigne unitaire",
+                "field_type": FieldType.AMOUNT,
+                "help_text": "Montant de référence de la consigne, par bouteille.",
+            },
         ],
         "starter_articles": [
             {
-                "data": {"nom": "Bouteille de gaz"},
+                "data": {"nom": "Bouteille de gaz", "type_gaz": "butane", "usage": "domestique"},
                 "config": {
                     "unit": "bouteille",
                     "variant_attribute_labels": ["Format"],
