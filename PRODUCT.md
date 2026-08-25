@@ -276,8 +276,17 @@ Mis à jour à chaque commit de lot. Statuts : ⬜ à faire · 🔶 en cours · 
 | 2 | Stock (articles, variantes, dépôts, mouvements, seuils, lots, consignation) | ✅ |
 | 3 | Recherche, vues, import/export, tableaux de bord focalisables | ✅ |
 | 4 | Abonnements, devises, espace éditeur, encaissement manuel, factures | ✅ |
-| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ |
+| 5 | Mode hors-ligne (PWA, file d'opérations, synchronisation) | ⬜ (différé, décision client — voir note) |
 | 6 | Notifications WhatsApp | ⬜ (hors périmètre v1, architecture prête) |
+
+**Lot 5 différé (2026-08-25)** : avec les lots 0-4 livrés côté backend et fiches/stock/
+tableaux de bord/abonnement-éditeur livrés côté frontend, le client a choisi de ne pas
+enchaîner sur le hors-ligne pour l'instant plutôt que de le construire à l'aveugle —
+cohérent avec le §11.2 du cahier des charges, qui marque lui-même ce périmètre comme
+« à valider » (Q9), pas encore confirmé. Les trois fondations non négociables du §11.4
+restent posées (identifiants générés côté client, mouvements de stock additifs et
+immuables, journal d'opérations via le journal d'audit — voir §10.6) : le jour où ce
+lot reprend, rien à reconstruire à la base.
 
 Le frontend avance en parallèle, sur ses propres jalons (fondations d'abord, puis un
 écran par lot backend livré) :
