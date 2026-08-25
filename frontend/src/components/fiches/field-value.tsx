@@ -23,11 +23,13 @@
  * identifiant brut plutôt que de planter.
  */
 
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheck, ExternalLink, FileText, Image as ImageIcon, Loader2, MapPin, Phone, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { MediaViewer } from "@/components/ui/media-viewer";
 import { getDocument } from "@/lib/api/documents";
 import { getModelDefinition } from "@/lib/api/model-definitions";
 import { getRecord } from "@/lib/api/records";
@@ -283,6 +285,7 @@ function DocumentChip({
   accessToken?: string;
 }) {
   const query = useDocumentQuery(documentId, recordId, organizationId, accessToken);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   if (query.isLoading) {
     return (
@@ -295,16 +298,24 @@ function DocumentChip({
 
   if (query.data) {
     return (
-      <a
-        href={query.data.url}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground hover:bg-muted/70"
-      >
-        <FileText className="size-3.5 shrink-0" />
-        <span className="max-w-40 truncate">{query.data.filename}</span>
-        <span className="text-muted-foreground">{formatFileSize(query.data.size_bytes)}</span>
-      </a>
+      <>
+        <button
+          type="button"
+          onClick={() => setViewerOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground hover:bg-muted/70"
+        >
+          <FileText className="size-3.5 shrink-0" />
+          <span className="max-w-40 truncate">{query.data.filename}</span>
+          <span className="text-muted-foreground">{formatFileSize(query.data.size_bytes)}</span>
+        </button>
+        <MediaViewer
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          url={query.data.url}
+          filename={query.data.filename}
+          contentType={query.data.content_type}
+        />
+      </>
     );
   }
 
@@ -331,6 +342,7 @@ function PhotoThumbnail({
   accessToken?: string;
 }) {
   const query = useDocumentQuery(documentId, recordId, organizationId, accessToken);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   if (query.isLoading) {
     return (
@@ -342,16 +354,25 @@ function PhotoThumbnail({
 
   if (query.data && query.data.content_type.startsWith("image/")) {
     return (
-      <a href={query.data.url} target="_blank" rel="noreferrer" title={query.data.filename}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- URL signée à courte
-            durée de vie, hors domaine configurable pour next/image ; une balise
-            <img> simple évite d'ajouter ce domaine dynamique à la configuration. */}
-        <img
-          src={query.data.url}
-          alt={query.data.filename}
-          className="size-16 rounded-lg border border-border object-cover"
+      <>
+        <button type="button" onClick={() => setViewerOpen(true)} title={query.data.filename} className="cursor-zoom-in">
+          {/* eslint-disable-next-line @next/next/no-img-element -- URL signée à courte
+              durée de vie, hors domaine configurable pour next/image ; une balise
+              <img> simple évite d'ajouter ce domaine dynamique à la configuration. */}
+          <img
+            src={query.data.url}
+            alt={query.data.filename}
+            className="size-16 rounded-lg border border-border object-cover transition-transform hover:scale-105"
+          />
+        </button>
+        <MediaViewer
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          url={query.data.url}
+          filename={query.data.filename}
+          contentType={query.data.content_type}
         />
-      </a>
+      </>
     );
   }
 

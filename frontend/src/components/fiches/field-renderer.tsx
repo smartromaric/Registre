@@ -72,6 +72,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { MediaViewer } from "@/components/ui/media-viewer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -1046,6 +1047,7 @@ function DocumentAttachment({
   label?: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const cached = uploadContext && documentId ? getCachedDocument(uploadContext.organizationId, documentId) : null;
   const canUpload = Boolean(uploadContext?.recordId) && !disabled;
 
@@ -1087,11 +1089,24 @@ function DocumentAttachment({
     <div className="space-y-2">
       {documentId ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">
-            {cached ? cached.filename : `Document joint (${documentId.slice(0, 8)}…)`}
-            {cached ? <span className="ml-1.5 text-xs text-muted-foreground">{formatFileSize(cached.size_bytes)}</span> : null}
-          </span>
+          {cached ? (
+            <button
+              type="button"
+              onClick={() => setViewerOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate underline-offset-2 hover:underline">
+                {cached.filename}
+                <span className="ml-1.5 text-xs text-muted-foreground">{formatFileSize(cached.size_bytes)}</span>
+              </span>
+            </button>
+          ) : (
+            <>
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{`Document joint (${documentId.slice(0, 8)}…)`}</span>
+            </>
+          )}
           {!disabled ? (
             <Button
               type="button"
@@ -1104,6 +1119,15 @@ function DocumentAttachment({
             </Button>
           ) : null}
         </div>
+      ) : null}
+      {cached ? (
+        <MediaViewer
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          url={cached.url}
+          filename={cached.filename}
+          contentType={cached.content_type}
+        />
       ) : null}
 
       {!uploadContext?.recordId ? (
@@ -1157,7 +1181,10 @@ function PhotosAttachment({
   fieldKey: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [viewerDocumentId, setViewerDocumentId] = useState<string | null>(null);
   const canUpload = Boolean(uploadContext?.recordId) && !disabled;
+  const viewerDocument =
+    uploadContext && viewerDocumentId ? getCachedDocument(uploadContext.organizationId, viewerDocumentId) : null;
 
   const handleFiles = useCallback(
     async (files: File[]) => {
@@ -1207,10 +1234,20 @@ function PhotosAttachment({
             return (
               <div
                 key={id}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pr-1 pl-2 text-xs"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pr-1 pl-1 text-xs"
               >
-                <ImageIcon className="size-3.5 text-muted-foreground" />
-                <span className="max-w-32 truncate">{cached ? cached.filename : `${id.slice(0, 8)}…`}</span>
+                {cached ? (
+                  <button type="button" onClick={() => setViewerDocumentId(id)} className="flex items-center gap-1.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- URL signée, aperçu immédiat */}
+                    <img src={cached.url} alt={cached.filename} className="size-6 rounded object-cover" />
+                    <span className="max-w-32 truncate underline-offset-2 hover:underline">{cached.filename}</span>
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 pl-1">
+                    <ImageIcon className="size-3.5 text-muted-foreground" />
+                    <span className="max-w-32 truncate">{`${id.slice(0, 8)}…`}</span>
+                  </span>
+                )}
                 {!disabled ? (
                   <Button
                     type="button"
@@ -1265,6 +1302,15 @@ function PhotosAttachment({
           />
         </div>
       )}
+      {viewerDocument ? (
+        <MediaViewer
+          open={Boolean(viewerDocumentId)}
+          onOpenChange={(open) => !open && setViewerDocumentId(null)}
+          url={viewerDocument.url}
+          filename={viewerDocument.filename}
+          contentType={viewerDocument.content_type}
+        />
+      ) : null}
     </div>
   );
 }
