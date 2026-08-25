@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, LogOut, Search, ShieldCheck } from "lucide-react";
+import { Check, ChevronsUpDown, Compass, LogOut, Search, ShieldCheck } from "lucide-react";
 
 import { AppSidebar, ModelsNavMenu } from "@/components/app-nav";
 import { Logo } from "@/components/brand/logo";
@@ -26,6 +26,8 @@ import {
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRequireOrganization } from "@/lib/auth/route-guards";
 import { ROLE_LABELS } from "@/lib/roles";
+import { TOUR_TARGETS } from "@/lib/tour/tour-steps";
+import { useTour } from "@/lib/tour/use-tour";
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -47,6 +49,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     logout,
   } = useAuth();
   const queryClient = useQueryClient();
+  // La visite ne démarre qu'une fois la coquille réellement montée : ses cibles
+  // (barre latérale, indicateur hors-ligne…) n'existent pas avant.
+  const shellReady = status === "authenticated" && Boolean(currentOrganization);
+  const tour = useTour(user?.id, shellReady);
 
   // Palette de commandes (Cmd/Ctrl K — PRODUCT.md §7.2) : un seul endroit qui
   // possède l'état d'ouverture, partagé par le raccourci clavier global et le
@@ -136,6 +142,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               size="sm"
               className="hidden text-muted-foreground sm:flex"
               onClick={() => setPaletteOpen(true)}
+              data-tour={TOUR_TARGETS.search}
             >
               <Search className="size-3.5" />
               Rechercher
@@ -150,11 +157,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             >
               <Search className="size-4" />
             </Button>
-            <OfflineStatusIndicator />
+            <span data-tour={TOUR_TARGETS.offline}>
+              <OfflineStatusIndicator />
+            </span>
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu du compte">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full"
+                  aria-label="Menu du compte"
+                  data-tour={TOUR_TARGETS.account}
+                >
                   <Avatar size="sm">
                     <AvatarFallback>{user ? initials(user.full_name) : "?"}</AvatarFallback>
                   </Avatar>
@@ -178,6 +193,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                   </>
                 ) : null}
+                <DropdownMenuSeparator />
+                {/* Rejouer la visite : sans cette entrée, un utilisateur qui l'a
+                    passée trop vite n'a plus aucun moyen d'y revenir. Le menu se
+                    ferme avant de lancer, sinon il masquerait la première bulle. */}
+                <DropdownMenuItem onSelect={() => window.setTimeout(tour.start, 120)}>
+                  <Compass className="size-4" />
+                  Revoir la visite guidée
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => void logout()}>
                   <LogOut className="size-4" />

@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { listModelDefinitions } from "@/lib/api/model-definitions";
 import { useAuth } from "@/lib/auth/auth-context";
+import { TOUR_TARGETS } from "@/lib/tour/tour-steps";
 import { cn } from "@/lib/utils";
 
 function useOrganizationModels() {
@@ -129,6 +130,7 @@ export function AppSidebar() {
       className="sticky top-14 z-30 hidden h-[calc(100dvh-3.5rem)] shrink-0 lg:block"
     >
       <motion.div
+        data-tour={TOUR_TARGETS.sidebar}
         animate={{ width: expanded ? EXPANDED_WIDTH : RAIL_WIDTH }}
         transition={{ duration: 0.2, ease: "easeOut" }}
         className={cn(
@@ -160,7 +162,7 @@ export function AppSidebar() {
           ))
         )}
 
-        <div className="mt-4 space-y-1 border-t border-border/70 pt-3">
+        <div className="mt-4 space-y-1 border-t border-border/70 pt-3" data-tour={TOUR_TARGETS.models}>
           <SidebarLink href="/models" icon={<Layers className="size-4 shrink-0" />} label="Mes modèles" active={pathname === "/models"} collapsed={!expanded} />
           <SidebarLink
             href="/models/library"
@@ -170,7 +172,9 @@ export function AppSidebar() {
             collapsed={!expanded}
           />
           {isAdmin ? (
-            <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} collapsed={!expanded} />
+            <span data-tour={TOUR_TARGETS.newModel} className="block">
+              <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} collapsed={!expanded} />
+            </span>
           ) : null}
           <SidebarLink href="/depots" icon={<Warehouse className="size-4 shrink-0" />} label="Dépôts" active={pathname === "/depots"} collapsed={!expanded} />
           {isAdmin ? (

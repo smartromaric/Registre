@@ -311,3 +311,64 @@
       radial-gradient(118% 92% at 100% 0%, color-mix(in oklch, var(--card-accent), transparent 82%), transparent 62%);
   }
 }
+
+/*
+ * Bulles de la visite guidée (`driver.js`, voir src/lib/tour/). La feuille de
+ * style de la librairie est neutre : on la ramène sur les jetons du produit,
+ * sinon la visite ressemble à une pièce rapportée.
+ *
+ * Délibérément **hors de tout `@layer`** : Tailwind v4 range ses utilitaires
+ * dans `@layer utilities`, et toute CSS non layerisée les bat quelle que soit
+ * la spécificité (playbook §5). La CSS de `driver.js` étant justement non
+ * layerisée, des overrides placés dans un layer perdraient contre elle.
+ */
+.registre-tour.driver-popover {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 48px -12px color-mix(in oklch, var(--primary), transparent 68%);
+  font-family: var(--font-sans);
+  max-width: 22rem;
+}
+.registre-tour .driver-popover-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 1rem;
+}
+.registre-tour .driver-popover-description {
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+.registre-tour .driver-popover-progress-text {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.registre-tour .driver-popover-next-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 0;
+  border-radius: calc(var(--radius) * 0.7);
+  text-shadow: none;
+  font-weight: 500;
+}
+.registre-tour .driver-popover-prev-btn,
+.registre-tour .driver-popover-close-btn {
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  text-shadow: none;
+}
+.registre-tour .driver-popover-arrow-side-left {
+  border-left-color: var(--popover);
+}
+.registre-tour .driver-popover-arrow-side-right {
+  border-right-color: var(--popover);
+}
+.registre-tour .driver-popover-arrow-side-top {
+  border-top-color: var(--popover);
+}
+.registre-tour .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--popover);
+}
