@@ -11,7 +11,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Home, Layers, Library, Plus, Warehouse } from "lucide-react";
+import { CreditCard, Home, Layers, Library, Plus, Users, Warehouse } from "lucide-react";
 
 import {
   CommandDialog,
@@ -36,7 +36,8 @@ export interface CommandPaletteProps {
  * partagé par le bouton visible de l'en-tête et le raccourci clavier. */
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
-  const { accessToken, currentOrganizationId } = useAuth();
+  const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
+  const isAdmin = currentOrganization?.my_role === "admin";
 
   const modelsQuery = useQuery({
     queryKey: ["model-definitions", currentOrganizationId],
@@ -81,6 +82,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Warehouse className="size-4" />
             Dépôts
           </CommandItem>
+          {isAdmin ? (
+            <CommandItem onSelect={() => go("/organisation/membres")}>
+              <Users className="size-4" />
+              Membres
+            </CommandItem>
+          ) : null}
           <CommandItem onSelect={() => go("/abonnement")}>
             <CreditCard className="size-4" />
             Abonnement

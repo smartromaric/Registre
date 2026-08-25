@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Home, Layers, Library, Menu, Plus, Warehouse } from "lucide-react";
+import { CreditCard, Home, Layers, Library, Menu, Plus, Users, Warehouse } from "lucide-react";
 
 import { ModelIcon } from "@/components/fiches/model-icon";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ export function AppSidebar() {
   const pathname = usePathname();
   const modelsQuery = useOrganizationModels();
   const models = modelsQuery.data ?? [];
+  const { currentOrganization } = useAuth();
+  const isAdmin = currentOrganization?.my_role === "admin";
 
   return (
     <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border/70 px-3 py-5 lg:flex">
@@ -75,6 +77,14 @@ export function AppSidebar() {
         />
         <SidebarLink href="/models/new" icon={<Plus className="size-4 shrink-0" />} label="Nouveau modèle" active={pathname === "/models/new"} />
         <SidebarLink href="/depots" icon={<Warehouse className="size-4 shrink-0" />} label="Dépôts" active={pathname === "/depots"} />
+        {isAdmin ? (
+          <SidebarLink
+            href="/organisation/membres"
+            icon={<Users className="size-4 shrink-0" />}
+            label="Membres"
+            active={pathname === "/organisation/membres"}
+          />
+        ) : null}
         <SidebarLink href="/abonnement" icon={<CreditCard className="size-4 shrink-0" />} label="Abonnement" active={pathname === "/abonnement"} />
       </div>
     </aside>
@@ -109,6 +119,8 @@ function SidebarLink({
 export function ModelsNavMenu() {
   const modelsQuery = useOrganizationModels();
   const models = modelsQuery.data ?? [];
+  const { currentOrganization } = useAuth();
+  const isAdmin = currentOrganization?.my_role === "admin";
 
   return (
     <DropdownMenu>
@@ -156,6 +168,14 @@ export function ModelsNavMenu() {
             Dépôts
           </Link>
         </DropdownMenuItem>
+        {isAdmin ? (
+          <DropdownMenuItem asChild>
+            <Link href="/organisation/membres">
+              <Users className="size-4" />
+              Membres
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild>
           <Link href="/abonnement">
             <CreditCard className="size-4" />

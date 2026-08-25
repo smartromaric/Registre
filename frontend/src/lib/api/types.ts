@@ -14,6 +14,7 @@ export interface UserOut {
   full_name: string;
   is_active: boolean;
   is_platform_admin: boolean;
+  totp_enabled: boolean;
 }
 
 // --- backend/app/schemas/organization.py --------------------------------------------------
@@ -58,6 +59,30 @@ export interface MembershipOut {
   user: UserOut;
 }
 
+/** POST .../members (§4.4) — réservé à l'ADMIN de l'organisation côté backend. */
+export interface MembershipInvite {
+  email: string;
+  full_name: string;
+  role: OrgRole;
+  can_view_amounts?: boolean;
+}
+
+/** PATCH .../members/{id} — réservé à l'ADMIN, même règle que `MembershipInvite`. */
+export interface MembershipUpdate {
+  role?: OrgRole | null;
+  can_view_amounts?: boolean | null;
+  is_active?: boolean | null;
+}
+
+export interface MembershipInviteOut {
+  membership: MembershipOut;
+  invitation_email_sent: boolean;
+  /** Rempli seulement quand un e-mail devait être envoyé mais que le SMTP n'est
+   * pas configuré côté serveur — le membre est créé quand même, ce lien doit
+   * alors être transmis à la main (voir `components/members/invite-member-dialog.tsx`). */
+  invitation_link: string | null;
+}
+
 // --- backend/app/schemas/auth.py --------------------------------------------------------
 export interface SignupRequest {
   email: string;
@@ -88,6 +113,49 @@ export interface AuthResponse {
   tokens: TokenPairOut;
   user: UserOut;
   is_new_user: boolean;
+}
+
+/** Réponse de `POST /auth/login` — forme volontairement plus large qu'`AuthResponse`
+ * pour porter les deux issues possibles : `requires_2fa: false` (l'immense majorité
+ * des comptes) laisse `tokens`/`user` toujours renseignés exactement comme
+ * `AuthResponse` ; `requires_2fa: true` les laisse `null` et fournit
+ * `challenge_token` à la place, à soumettre avec le code à `POST /auth/2fa/verify`.
+ * Pas encore consommé par l'écran de connexion (2FA pas encore câblée côté
+ * interface) — géré défensivement dans `app/api/auth/_lib/forward.ts` pour ne
+ * jamais planter sur `tokens` nul le jour où un compte l'active. */
+export interface LoginResult {
+  requires_2fa: boolean;
+  challenge_token: string | null;
+  tokens: TokenPairOut | null;
+  user: UserOut | null;
+  is_new_user: boolean;
+}
+
+// --- mot de passe oublié (§4.4 raffinement) ---------------------------------------------
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
+// --- acceptation d'invitation par e-mail (§4.4) -----------------------------------------
+
+/** Ce qu'une page d'acceptation d'invitation affiche avant de demander un mot de
+ * passe — jamais le jeton lui-même, il reste dans l'URL côté client. */
+export interface InvitationInfoOut {
+  email: string;
+  organization_name: string;
+  already_active: boolean;
+}
+
+export interface InvitationAcceptRequest {
+  token: string;
+  password: string;
+  full_name?: string | null;
 }
 
 // =========================================================================
@@ -883,4 +951,20 @@ export interface LifecycleTransition {
 
 export interface LifecycleScanResult {
   transitions: LifecycleTransition[];
+}
+
+// =========================================================================
+// Recherche globale (cahier des charges §9) — mode ADDITIF, ne pas toucher aux
+// types ci-dessus. Miroir exact de backend/app/schemas/search.py.
+// =========================================================================
+
+/** Un résultat de `GET .../search` : `model_name` permet de distinguer des
+ * fiches de modèles différents quand rien d'autre ne les différencie (ex. le
+ * champ "Lien vers une fiche", qui ne restreint la recherche à aucun modèle
+ * précis — voir `RecordLinkFieldControl` dans `field-renderer.tsx`). */
+export interface SearchHitOut {
+  record_id: string;
+  model_definition_id: string;
+  model_name: string;
+  title: string;
 }

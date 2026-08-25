@@ -106,6 +106,13 @@ export default function LoginPage() {
           />
         </FormField>
 
+        <Link
+          href="/mot-de-passe-oublie"
+          className="-mt-2 block text-right text-xs font-medium text-primary hover:underline"
+        >
+          Mot de passe oublié ?
+        </Link>
+
         <Button type="submit" className="w-full" size="lg" disabled={busy}>
           {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
           Se connecter

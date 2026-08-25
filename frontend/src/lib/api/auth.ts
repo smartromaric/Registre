@@ -1,6 +1,15 @@
 import { apiRequest } from "./http";
 import { ApiError } from "./errors";
-import type { GoogleAuthRequest, LoginRequest, SignupRequest, UserOut } from "./types";
+import type {
+  ForgotPasswordRequest,
+  GoogleAuthRequest,
+  InvitationAcceptRequest,
+  InvitationInfoOut,
+  LoginRequest,
+  ResetPasswordRequest,
+  SignupRequest,
+  UserOut,
+} from "./types";
 
 /** Réponse renvoyée par nos propres Route Handlers /api/auth/* (jamais le refresh token). */
 export interface ClientAuthResult {
@@ -58,4 +67,40 @@ export async function logout(): Promise<void> {
 
 export function fetchCurrentUser(accessToken: string): Promise<UserOut> {
   return apiRequest<UserOut>("/auth/me", { accessToken });
+}
+
+// --- mot de passe oublié (§4.4 raffinement) ---------------------------------------------
+
+/** Toujours un succès côté appelant (le backend renvoie 204 qu'un compte existe
+ * ou non pour cet e-mail — voir `AuthService.request_password_reset`) : ne
+ * jamais afficher "aucun compte trouvé", ce serait énumérer les comptes. Appel
+ * direct au backend (endpoint public, pas de jeton à poser) — pas de Route
+ * Handler dédié puisqu'aucun jeton n'est renvoyé ici. */
+export function forgotPassword(email: string): Promise<void> {
+  return apiRequest<void>("/auth/password/forgot", {
+    method: "POST",
+    body: JSON.stringify({ email } satisfies ForgotPasswordRequest),
+  });
+}
+
+/** Réinitialise le mot de passe et connecte immédiatement — même forme de
+ * réponse (`AuthResponse`) que login/signup, donc même chemin de stockage des
+ * jetons via `/api/auth/reset-password` (cookie httpOnly posé côté serveur). */
+export function resetPassword(payload: ResetPasswordRequest): Promise<ClientAuthResult> {
+  return postToOwnRoute("/api/auth/reset-password", payload);
+}
+
+// --- acceptation d'invitation par e-mail (§4.4) -----------------------------------------
+
+/** Endpoint public (le jeton d'invitation signé fait foi) — appel direct au
+ * backend, pas de jeton de session en jeu ici. 400 si le jeton est invalide ou
+ * expiré (`ApiError.status === 400`). */
+export function getInvitation(token: string): Promise<InvitationInfoOut> {
+  return apiRequest<InvitationInfoOut>(`/auth/invitations/${encodeURIComponent(token)}`);
+}
+
+/** Accepte l'invitation et connecte immédiatement — même mécanisme que
+ * `resetPassword` (Route Handler dédié, cookie httpOnly). */
+export function acceptInvitation(payload: InvitationAcceptRequest): Promise<ClientAuthResult> {
+  return postToOwnRoute("/api/auth/invitations/accept", payload);
 }

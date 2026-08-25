@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { API_BASE_URL } from "@/lib/api/config";
 import { parseErrorDetail } from "@/lib/api/errors";
 import { setRefreshCookie } from "@/lib/session";
-import type { AuthResponse, UserOut } from "@/lib/api/types";
+import type { LoginResult, UserOut } from "@/lib/api/types";
 
 /** Forme renvoyée au client par nos Route Handlers d'authentification : jamais le
  * refresh token, qui reste uniquement dans le cookie httpOnly (voir src/lib/session.ts). */
@@ -11,6 +11,17 @@ export interface ClientAuthResult {
   access_token: string;
   user: UserOut;
   is_new_user: boolean;
+}
+
+/** `POST /auth/login` seul peut renvoyer ceci (compte protégé par la 2FA) — voir
+ * `LoginResult` dans lib/api/types.ts. Pas encore consommé par l'écran de
+ * connexion (2FA pas encore câblée côté interface) : ce cas n'est atteint par
+ * aucun compte existant aujourd'hui, mais `callBackendAuth` doit rester correct
+ * dès maintenant plutôt que de planter sur `tokens: null` le jour où un compte
+ * l'active. */
+export interface ClientTwoFactorChallenge {
+  requires_2fa: true;
+  challenge_token: string;
 }
 
 /**
@@ -40,12 +51,24 @@ export async function callBackendAuth(path: string, body: unknown): Promise<Next
     return NextResponse.json({ error: message }, { status: backendResponse.status });
   }
 
-  const data = (await backendResponse.json()) as AuthResponse;
-  await setRefreshCookie(data.tokens.refresh_token);
+  const data = (await backendResponse.json()) as LoginResult;
+
+  if (data.requires_2fa) {
+    // Compte protégé par la 2FA : pas de jetons à poser, juste le challenge.
+    // L'écran de connexion ne sait pas encore l'utiliser (voir ClientTwoFactorChallenge
+    // ci-dessus) ; on renvoie tout de même une 401 explicite plutôt que de planter
+    // sur `tokens: null`, pour ne pas casser silencieusement les comptes avec 2FA.
+    return NextResponse.json(
+      { error: "La double authentification n'est pas encore prise en charge sur cet écran." },
+      { status: 401 },
+    );
+  }
+
+  await setRefreshCookie(data.tokens!.refresh_token);
 
   const result: ClientAuthResult = {
-    access_token: data.tokens.access_token,
-    user: data.user,
+    access_token: data.tokens!.access_token,
+    user: data.user!,
     is_new_user: data.is_new_user,
   };
   return NextResponse.json(result);

@@ -33,6 +33,12 @@ interface AuthContextValue {
   signup: (payload: { email: string; password: string; full_name: string }) => Promise<{ isNewUser: boolean }>;
   login: (payload: { email: string; password: string }) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<{ isNewUser: boolean }>;
+  /** Réinitialise le mot de passe puis connecte immédiatement — même mécanisme
+   * de stockage des jetons que `login` (voir plus bas), pas un second circuit. */
+  resetPassword: (payload: { token: string; password: string }) => Promise<void>;
+  /** Accepte une invitation puis connecte immédiatement — même mécanisme que
+   * `login`/`resetPassword`. */
+  acceptInvitation: (payload: { token: string; password: string; full_name?: string }) => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: (payload: OrganizationCreate) => Promise<OrganizationWithRole>;
 }
@@ -152,6 +158,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { isNewUser: result.is_new_user };
   }, []);
 
+  const resetPassword = useCallback(async (payload: { token: string; password: string }) => {
+    const result = await authApi.resetPassword(payload);
+    setAccessToken(result.access_token);
+    setUser(result.user);
+    setStatus("authenticated");
+  }, []);
+
+  const acceptInvitation = useCallback(
+    async (payload: { token: string; password: string; full_name?: string }) => {
+      const result = await authApi.acceptInvitation(payload);
+      setAccessToken(result.access_token);
+      setUser(result.user);
+      setStatus("authenticated");
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     await authApi.logout();
     setAccessToken(null);
@@ -193,6 +216,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signup,
     login,
     loginWithGoogle,
+    resetPassword,
+    acceptInvitation,
     logout,
     completeOnboarding,
   };
