@@ -29,10 +29,25 @@ function normalizeBasePath(raw: string | undefined): string | undefined {
 
 const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
 
+/**
+ * Origines autorisees a joindre le serveur de developpement.
+ *
+ * Meme piege que pour l'application : depuis Next 15, `next dev` protege
+ * `/_next/*` par une verification d'origine. Servi derriere un tunnel, il rend
+ * le HTML et refuse ses propres chunks en 403 — la page s'affiche, l'animation
+ * ne demarre jamais, et rien dans la console ne pointe vers l'origine.
+ * Sans effet en production, ou le site est un export statique.
+ */
+const devOrigins = (process.env.NEXT_PUBLIC_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, ""))
+  .filter(Boolean);
+
 const nextConfig: NextConfig = {
   output: "export",
   images: { unoptimized: true },
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
+  ...(devOrigins.length > 0 ? { allowedDevOrigins: devOrigins } : {}),
 };
 
 export default nextConfig;
