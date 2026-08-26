@@ -1,0 +1,96 @@
+# Déploiement Render — voir docs/DEPLOIEMENT.md pour le mode d'emploi complet
+# et, surtout, pour les limites réelles de l'offre gratuite.
+#
+# Deux services et une base. Le stockage des fichiers n'est volontairement PAS
+# le disque local : sur l'offre gratuite de Render le système de fichiers est
+# éphémère, tout document ou photo téléversé disparaîtrait au premier
+# redéploiement. Il faut donc un stockage objet compatible S3 (Cloudflare R2,
+# Backblaze B2…) — voir les variables S3_* ci-dessous.
+
+databases:
+  - name: registre-db
+    databaseName: registre
+    user: registre
+    plan: free
+
+services:
+  # --- API FastAPI ---------------------------------------------------------
+  - type: web
+    name: registre-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -e .
+    # Les migrations tournent au démarrage : sur Render l'offre gratuite n'a
+    # pas de hook de pré-déploiement, et une base en retard de migration est
+    # un échec plus coûteux qu'un démarrage un peu plus long.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /openapi.json
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      # Render fournit l'URL au format postgresql:// ; SQLAlchemy a besoin du
+      # pilote explicite. Voir DEPLOIEMENT.md : à recopier à la main en
+      # postgresql+asyncpg:// et postgresql+psycopg://.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_MIGRATIONS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FILE_SIGNING_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # Stockage objet — obligatoire ici, voir l'en-tête de ce fichier.
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_REGION
+        value: auto
+      # Connexion Google — laisser vide tant que l'origine de production n'est
+      # pas déclarée dans la console Google Cloud (l'écran affiche alors un
+      # état « non configuré » honnête, le mot de passe reste utilisable).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+  # --- Frontend Next.js ----------------------------------------------------
+  - type: web
+    name: registre-web
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- --port $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

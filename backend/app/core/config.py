@@ -37,6 +37,14 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
 
+    # Secret partagé du déclencheur externe du balayage nocturne (voir
+    # api/v1/routers/internal.py). Celery Beat suppose un processus qui tourne
+    # en permanence ET un Redis : sur un hébergement gratuit, le service
+    # s'endort et aucun des deux n'est garanti. Un appel HTTP quotidien par un
+    # planificateur externe réveille le service et déclenche le balayage.
+    # Absent = la route refuse tout appel (échec fermé, jamais ouvert).
+    cron_secret: str | None = None
+
     storage_backend: str = "local"  # "local" | "s3"
     storage_local_path: str = "./var/storage"
     s3_endpoint_url: str | None = None

@@ -9,6 +9,7 @@ from app.api.v1.routers import (
     documents,
     editor,
     files,
+    internal,
     members,
     model_definitions,
     organizations,
@@ -41,3 +42,4 @@ api_router.include_router(files.router)
 api_router.include_router(dashboards.router)
 api_router.include_router(dashboards.saved_router)
 api_router.include_router(sync.router)
+api_router.include_router(internal.router)
