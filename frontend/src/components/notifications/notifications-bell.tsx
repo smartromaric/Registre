@@ -7,6 +7,12 @@
  *
  * Le texte affiché est celui que le backend a écrit (`title`/`body` de
  * `NotificationOut`) : rien n'est reconstitué côté client.
+ *
+ * Depuis 2026-08-26, `NotificationOut.target` porte aussi la destination — la
+ * même que celle de l'écran Alertes, via `alertTargetHref`, pour qu'une même
+ * alerte n'envoie pas à deux endroits différents selon l'endroit où on clique.
+ * Une notification sans cible navigable reste un bouton : elle se marque comme
+ * lue, sans prétendre mener quelque part.
  */
 
 import { useState } from "react";
@@ -21,14 +27,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { alertTargetHref } from "@/lib/alert-format";
 import { listNotifications, markNotificationRead } from "@/lib/api/alerts";
 import type { NotificationOut } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Le backend renvoie tout l'historique sans pagination : la cloche n'en montre
- * que les plus récentes, et renvoie vers l'écran Alertes pour le reste. */
+/** La cloche n'affiche que les plus récentes et renvoie vers l'écran Alertes
+ * pour le reste. La route est par ailleurs bornée côté backend (50 par défaut),
+ * ce qui n'était pas le cas : à raison d'un appel par minute, elle rapatriait
+ * l'historique complet du destinataire. */
 const VISIBLE_COUNT = 8;
 const POLL_INTERVAL_MS = 60_000;
 
@@ -111,16 +120,12 @@ export function NotificationsBell() {
             <ul className="divide-y divide-border/70">
               {visible.map((notification) => (
                 <li key={notification.id}>
-                  <button
-                    type="button"
-                    disabled={notification.is_read || markRead.isPending}
-                    onClick={() => markRead.mutate(notification)}
-                    className={cn(
-                      "w-full px-3 py-2.5 text-left transition-colors",
-                      notification.is_read
-                        ? "cursor-default opacity-70"
-                        : "hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
-                    )}
+                  <NotificationRow
+                    notification={notification}
+                    onRead={() => {
+                      if (!notification.is_read) markRead.mutate(notification);
+                    }}
+                    onNavigate={() => setOpen(false)}
                   >
                     <span className="flex items-start justify-between gap-2">
                       <span className="text-sm font-medium text-foreground">{notification.title}</span>
@@ -137,7 +142,7 @@ export function NotificationsBell() {
                     <span className="mt-1 block text-[0.7rem] text-muted-foreground">
                       {formatDateTime(notification.created_at)}
                     </span>
-                  </button>
+                  </NotificationRow>
                 </li>
               ))}
             </ul>
@@ -156,5 +161,54 @@ export function NotificationsBell() {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * Une ligne de la cloche : un LIEN quand la notification mène quelque part, un
+ * bouton sinon.
+ *
+ * La distinction n'est pas cosmétique — playbook §6 : « les liens qui n'en sont
+ * pas doivent être des `<button>` ». Un lecteur d'écran annonce « lien » ou
+ * « bouton », et l'utilisateur attend une navigation dans un cas, une action
+ * dans l'autre. Dans les deux cas la notification est marquée lue.
+ */
+function NotificationRow({
+  notification,
+  onRead,
+  onNavigate,
+  children,
+}: {
+  notification: NotificationOut;
+  onRead: () => void;
+  onNavigate: () => void;
+  children: React.ReactNode;
+}) {
+  const href = alertTargetHref(notification.target);
+  const className = cn(
+    "block w-full px-3 py-2.5 text-left transition-colors",
+    "hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
+    notification.is_read ? "opacity-70" : null,
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={className}
+        onClick={() => {
+          onRead();
+          onNavigate();
+        }}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" disabled={notification.is_read} onClick={onRead} className={cn(className, notification.is_read && "cursor-default")}>
+      {children}
+    </button>
   );
 }

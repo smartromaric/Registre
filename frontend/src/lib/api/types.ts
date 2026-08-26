@@ -1093,6 +1093,27 @@ export type AlertStatus = "emitted" | "acknowledged" | "postponed" | "resolved";
  * mais pas l'id du `RecordDeadline`) : le libellé lisible affiché à l'écran ne
  * vient donc pas d'ici, mais de la notification liée par `related_alert_id`.
  * Voir `lib/alert-format.ts` et `app/(app)/alertes/page.tsx`. */
+/**
+ * Ce que l'alerte désigne réellement, résolu par le backend (2026-08-26).
+ *
+ * `source_id` pointe un `RecordDeadline`, un `StockLevel` ou un `StockLot` —
+ * jamais une fiche, et aucune route ne permettait d'en remonter jusqu'à quelque
+ * chose de navigable. C'est la fin des lignes d'alerte sur lesquelles on ne
+ * pouvait pas cliquer.
+ *
+ * `label` est toujours présent ; les identifiants de navigation, non. `target`
+ * lui-même est `null` quand la source a disparu depuis l'émission — on
+ * n'affiche alors pas de lien, plutôt qu'un lien menant à une 404.
+ */
+export interface AlertTarget {
+  label: string;
+  /** Alertes d'échéance — la fiche concernée. Se navigue via `/r/{id}`. */
+  record_id: string | null;
+  /** Alertes de stock (seuil, péremption de lot). */
+  depot_id: string | null;
+  variant_id: string | null;
+}
+
 export interface AlertOut {
   id: string;
   source_type: AlertSourceType;
@@ -1105,6 +1126,7 @@ export interface AlertOut {
   postponed_until: string | null; // AAAA-MM-JJ
   created_at: string; // ISO 8601 (datetime)
   resolved_at: string | null; // ISO 8601 (datetime)
+  target: AlertTarget | null;
 }
 
 export interface AlertPostpone {
@@ -1118,4 +1140,7 @@ export interface NotificationOut {
   related_alert_id: string | null;
   is_read: boolean;
   created_at: string; // ISO 8601 (datetime)
+  /** Même cible que l'alerte liée — permet à la cloche d'être navigable sans
+   *  interroger une seconde route. `null` si aucune alerte liée, ou source disparue. */
+  target: AlertTarget | null;
 }

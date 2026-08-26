@@ -1,4 +1,4 @@
-import { apiRequest } from "./http";
+import { apiRequest, apiRequestRaw } from "./http";
 import type {
   ImportCommitResult,
   ImportMappingSuggestion,
@@ -170,4 +170,79 @@ export function addRecordEvent(
     `/organizations/${organizationId}/records/${recordId}/events`,
     { accessToken, method: "POST", body: JSON.stringify(payload) },
   );
+}
+
+/** Plafond du serveur (`_EXPORT_ROW_LIMIT`). Répliqué ici pour que l'écran
+ *  puisse *prévenir* avant l'export plutôt que de laisser l'utilisateur
+ *  découvrir un fichier tronqué. Doit rester aligné sur le backend. */
+export const EXPORT_ROW_LIMIT = 10_000;
+
+export interface ExportedFile {
+  blob: Blob;
+  filename: string;
+}
+
+/**
+ * Export CSV des fiches d'un modèle (cahier des charges §10 — « consulter et
+ * exporter » est un droit du rôle Lecteur lui-même).
+ *
+ * La route existait côté backend depuis le lot 3, **sans aucun appelant côté
+ * frontend** : la fonction était donc inatteignable depuis l'application.
+ *
+ * Passe par `apiRequestRaw` : l'authentification voyage dans un en-tête, ce
+ * qu'un simple `<a href>` ne sait pas faire. Le fichier est donc récupéré en
+ * mémoire puis remis au navigateur — acceptable, l'export est plafonné à
+ * `EXPORT_ROW_LIMIT` lignes.
+ */
+export async function exportRecordsCsv(
+  accessToken: string,
+  organizationId: string,
+  modelId: string,
+  options: { filters?: string; columns?: string[] } = {},
+): Promise<ExportedFile> {
+  const search = new URLSearchParams();
+  if (options.filters) search.set("filters", options.filters);
+  if (options.columns?.length) search.set("columns", options.columns.join(","));
+  const query = search.toString();
+
+  const response = await apiRequestRaw(
+    `/organizations/${organizationId}/model-definitions/${modelId}/records/export.csv${query ? `?${query}` : ""}`,
+    { accessToken, headers: { "X-Organization-Id": organizationId } },
+  );
+
+  return { blob: await response.blob(), filename: filenameFromDisposition(response) };
+}
+
+/**
+ * Nom de fichier proposé par le serveur (`Content-Disposition`).
+ *
+ * Le repli n'est pas décoratif : le navigateur n'expose cet en-tête au script
+ * que si le serveur l'autorise explicitement (`Access-Control-Expose-Headers`).
+ * Sans repli, un déploiement mal configuré ferait télécharger un fichier nommé
+ * « undefined ».
+ */
+function filenameFromDisposition(response: Response): string {
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+
+  // `filename*` D'ABORD, et pas « la première forme rencontrée ».
+  // Le serveur envoie les deux, dans l'ordre imposé par le RFC 6266 : le repli
+  // ASCII (`filename="Vehicules.csv"`) puis la forme UTF-8
+  // (`filename*=UTF-8''V%C3%A9hicules.csv`). Une expression rationnelle qui
+  // accepte les deux indifféremment retient donc toujours le repli — et
+  // l'accent est perdu alors même que le serveur l'avait transmis.
+  const encoded = /filename\*=\s*UTF-8''([^;]+)/i.exec(disposition);
+  if (encoded?.[1]) {
+    try {
+      return decodeURIComponent(encoded[1].trim());
+    } catch {
+      return encoded[1].trim();
+    }
+  }
+
+  const plain = /filename=\s*"?([^";]+)"?/i.exec(disposition);
+  if (plain?.[1]) return plain[1].trim();
+
+  // Ni l'une ni l'autre : l'en-tête n'est pas exposé par CORS
+  // (`Access-Control-Expose-Headers`), ou le serveur ne l'a pas envoyé.
+  return "export.csv";
 }

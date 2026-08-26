@@ -1,5 +1,7 @@
 import json
+import unicodedata
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -240,6 +242,46 @@ async def add_record_event(
 _EXPORT_ROW_LIMIT = 10_000
 
 
+#: Caractères qu'un nom de fichier ne peut pas porter dans un en-tête HTTP : le
+#: guillemet fermerait la valeur, l'antislash l'échapperait. Les caractères de
+#: contrôle sont écartés à part, par `str.isprintable()`.
+_UNSAFE_IN_HEADER = '"\\'
+
+
+def _content_disposition(filename: str) -> str:
+    """En-tête de pièce jointe conforme au RFC 6266.
+
+    Le nom du modèle est libre — il vient du client. L'écrire directement dans
+    l'en-tête (`filename="{nom}.csv"`) marchait tant que ce nom tenait dans le
+    latin-1, seul jeu de caractères que les en-têtes HTTP savent transporter en
+    clair : « Véhicules » passe. Un modèle nommé en cyrillique, en arabe, ou avec
+    un simple « € », faisait lever un `UnicodeEncodeError` au moment d'écrire la
+    réponse — un export en erreur 500, sans rapport visible avec la cause.
+
+    On envoie donc les deux formes, comme le prescrit le RFC : un `filename`
+    ASCII de repli pour les clients anciens, et un `filename*` encodé en UTF-8
+    que tous les navigateurs actuels préfèrent.
+    """
+    stem, dot, extension = filename.rpartition(".")
+    if not dot:  # aucun point : tout est le radical
+        stem, extension = filename, ""
+
+    ascii_stem = unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode()
+    # Un saut de ligne est de l'ASCII : il survit à `encode("ascii")` et
+    # permettrait d'injecter un en-tête HTTP entier dans la réponse. Ces
+    # caractères viennent d'un nom saisi par l'utilisateur — on les retire.
+    ascii_stem = "".join(c for c in ascii_stem if c.isprintable() and c not in _UNSAFE_IN_HEADER).strip()
+
+    # Le repli se calcule sur le RADICAL et non sur le nom entier : « 🚚.csv »
+    # laissait sinon « .csv », c'est-à-dire un fichier caché sans nom, que le
+    # système d'exploitation refuse ou masque.
+    ascii_extension = "".join(c for c in extension if c.isalnum())
+    safe_name = f"{ascii_stem or 'export'}.{ascii_extension or 'csv'}"
+
+    quoted = quote(filename, safe="")
+    return f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quoted}'
+
+
 @router.get("/organizations/{organization_id}/model-definitions/{model_id}/records/export.csv")
 async def export_records(
     model_id: uuid.UUID,
@@ -262,7 +304,7 @@ async def export_records(
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{model.name_plural}.csv"'},
+        headers={"Content-Disposition": _content_disposition(f"{model.name_plural}.csv")},
     )
 
 

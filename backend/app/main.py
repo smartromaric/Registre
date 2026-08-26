@@ -18,6 +18,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Sans cette ligne, le navigateur cache `Content-Disposition` au script même
+    # quand le serveur l'envoie : l'export CSV serait téléchargé sous un nom
+    # générique au lieu de celui du modèle. `allow_headers` ne couvre que les
+    # en-têtes de la REQUÊTE ; les en-têtes de réponse lisibles se déclarent ici.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(api_router, prefix=settings.api_prefix)

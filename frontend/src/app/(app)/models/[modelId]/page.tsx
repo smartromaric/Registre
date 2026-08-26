@@ -7,6 +7,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CloudOff, FilePlus2, Layers, Settings, Upload } from "lucide-react";
 
 import { buildRecordColumns } from "@/components/fiches/record-columns";
+import { ExportRecordsButton } from "@/components/fiches/export-records-button";
 import { ModelIcon } from "@/components/fiches/model-icon";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/state-views";
@@ -139,6 +140,16 @@ export default function ModelRecordsPage() {
               <Settings className="size-4" />
             </Link>
           </Button>
+          {/* Exporter est un droit du rôle Lecteur lui-même (EXPORT_DATA, §4.2) :
+              contrairement à Importer, il n'est donc conditionné à aucun rôle.
+              Il l'est en revanche à la connexion — l'export lit le serveur, le
+              cache local ne contient que les fiches déjà visitées. */}
+          <ExportRecordsButton
+            modelId={model.id}
+            totalRecords={recordsQuery.data?.total ?? null}
+            disabled={servedFromCache}
+            disabledReason="L'export nécessite une connexion au serveur."
+          />
           {/* Importer crée des fiches : même droit que « Nouvelle fiche »
               (CREATE_EDIT_RECORD, §4.2) — jamais proposé à un lecteur. */}
           {canCreateRecords ? (
@@ -149,10 +160,14 @@ export default function ModelRecordsPage() {
               </Link>
             </Button>
           ) : null}
-          <Button onClick={() => router.push(`/models/${model.id}/records/new`)}>
-            <FilePlus2 className="size-4" />
-            Nouvelle fiche
-          </Button>
+          {/* Même garde que pour Importer. Elle manquait ici : un lecteur voyait
+              « Nouvelle fiche » et le formulaire finissait en 403 à l'envoi. */}
+          {canCreateRecords ? (
+            <Button onClick={() => router.push(`/models/${model.id}/records/new`)}>
+              <FilePlus2 className="size-4" />
+              Nouvelle fiche
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -179,11 +194,19 @@ export default function ModelRecordsPage() {
           <EmptyState
             icon={FilePlus2}
             title="Aucune fiche pour l'instant"
-            description={`Créez la première fiche ${model.name_singular.toLowerCase()} de votre organisation.`}
+            description={
+              canCreateRecords
+                ? `Créez la première fiche ${model.name_singular.toLowerCase()} de votre organisation.`
+                : // Un lecteur ne peut pas créer : lui proposer de le faire serait
+                  // une impasse. On explique la situation au lieu d'inviter au 403.
+                  `Aucune fiche ${model.name_singular.toLowerCase()} n'a encore été créée dans votre organisation.`
+            }
             action={
-              <Button onClick={() => router.push(`/models/${model.id}/records/new`)}>
-                Nouvelle fiche
-              </Button>
+              canCreateRecords ? (
+                <Button onClick={() => router.push(`/models/${model.id}/records/new`)}>
+                  Nouvelle fiche
+                </Button>
+              ) : null
             }
             className="border-none bg-transparent px-6 py-16"
           />

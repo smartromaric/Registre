@@ -1428,6 +1428,75 @@ dans `lib/typography.ts` et vérifiées au rendu ; pied de page rendu hors de
 **Déploiement** : service `registre-site` de `render.yaml`, en runtime `static`.
 
 
+### 10.19 Trois trous « backend complet, zéro interface » comblés (2026-08-26)
+
+Un motif s'est répété trois fois sur ce produit : une fonction entièrement
+construite et testée côté serveur, **inatteignable depuis l'application**. Les
+alertes et l'import ont été traités précédemment ; ce lot ferme le troisième, et
+le trou de navigation que les alertes avaient laissé derrière elles.
+
+**Une alerte mène enfin quelque part.** `Alert` ne porte que `source_type` et
+`source_id`, et ce `source_id` désigne un `RecordDeadline`, un `StockLevel` ou un
+`StockLot` — jamais une fiche. Aucune route ne permettait d'en remonter jusqu'à
+quelque chose de navigable : l'écran Alertes affichait donc des lignes sur
+lesquelles il était impossible de cliquer, et empruntait son libellé au texte de
+la notification liée — absent dès que l'alerte était adressée à quelqu'un
+d'autre. Le fichier le documentait honnêtement plutôt que de fabriquer un lien.
+
+`AlertService.resolve_targets` comble le trou côté serveur, en **une requête
+groupée par type de source** quelle que soit la longueur de la liste (une
+résolution par ligne aurait été un N+1 sur l'écran dont c'est justement le rôle
+d'en afficher beaucoup). `AlertOut.target` et `NotificationOut.target` portent
+désormais un libellé lisible et de quoi naviguer ; la cloche est navigable sans
+seconde requête. Deux honnêtetés conservées :
+
+- une source disparue depuis l'émission donne une cible **absente**, pas un lien
+  fabriqué qui finirait en 404 — c'est un test à part entière ;
+- les alertes de stock pointent `/depots` **sans paramètre de filtre**, parce
+  qu'aucun écran de niveaux de stock par dépôt n'existe côté frontend et qu'un
+  lien qui prétend filtrer sans filtrer serait un mensonge de plus. Le détail
+  (article, dépôt) est porté par le libellé, qui lui est exact.
+
+**L'export CSV devient atteignable.** La route existait depuis le lot 3 sans
+aucun appelant. Le cahier des charges §4.2 en fait pourtant un droit du rôle
+Lecteur lui-même : le bouton n'est donc conditionné à aucun rôle — seulement à la
+connexion, l'export lisant le serveur là où le cache local ne contient que les
+fiches déjà visitées. Le plafond de 10 000 lignes est **annoncé avant** le
+téléchargement plutôt que découvert dans le fichier.
+
+Trois défauts trouvés en construisant ce bouton, tous invisibles jusqu'à ce
+qu'on essaie réellement de s'en servir :
+
+- **`Content-Disposition` n'était pas exposé par CORS.** `allow_headers` ne
+  couvre que les en-têtes de la *requête* ; sans `expose_headers`, le navigateur
+  cache l'en-tête au script et le fichier se serait téléchargé sous un nom
+  générique.
+- **Le nom de fichier pouvait faire tomber l'export en 500.** Il vient du nom du
+  modèle, saisi librement, et était écrit tel quel dans l'en-tête — or un en-tête
+  HTTP ne transporte en clair que du latin-1. « Véhicules » passe ; un modèle
+  nommé en cyrillique ou portant un « € » levait un `UnicodeEncodeError`.
+  L'en-tête suit désormais le RFC 6266 (repli ASCII + `filename*` en UTF-8), les
+  caractères de contrôle sont retirés (un saut de ligne est de l'ASCII : il
+  survivait au filtre et permettait d'injecter un en-tête entier), et le repli se
+  calcule sur le **radical** — « 🚚.csv » donnait sinon « .csv », un fichier
+  caché sans nom.
+- **Côté client, la forme UTF-8 était ignorée.** Une expression rationnelle
+  acceptant indifféremment `filename` et `filename*` retient toujours la
+  première, c'est-à-dire le repli ASCII — l'accent était perdu alors même que le
+  serveur l'avait transmis.
+
+**Deux correctifs de rôle trouvés au passage.** « Nouvelle fiche » n'était
+conditionné à aucun rôle, contrairement à « Importer » juste à côté : un lecteur
+voyait le bouton et le formulaire finissait en 403 à l'envoi. L'état vide
+invitait de même à créer une première fiche. Les deux suivent maintenant
+`CREATE_EDIT_RECORD`.
+
+**Notifications bornées.** `GET /notifications` n'avait aucune limite, alors que
+la cloche l'interroge toutes les 60 secondes : après quelques mois de balayages
+quotidiens, chaque tour rapatriait l'historique complet du destinataire pour
+n'en afficher que huit lignes. Plafond par défaut à 50, réglable jusqu'à 200.
+
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans

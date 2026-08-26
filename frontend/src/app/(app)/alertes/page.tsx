@@ -5,17 +5,21 @@
  * visible du moteur d'échéances. Même forme que
  * `organisation/conflits/page.tsx` : liste, filtres, action par ligne.
  *
- * **Libellé des alertes.** `AlertOut` ne porte aucun texte lisible : seulement
- * `source_type`, `source_id` et `palier`. Et `source_id` désigne un
- * `RecordDeadline` / `StockLevel` / `StockLot`, jamais une fiche — aucune route
- * exposée ne permet d'en remonter jusqu'à la fiche concernée. Le seul texte
- * réellement disponible est celui de la notification liée
- * (`NotificationOut.related_alert_id`), écrit par le backend : c'est lui qu'on
- * affiche, et rien n'est affiché quand il manque. Aucun lien vers une fiche
- * n'est proposé ici : il serait fabriqué, et finirait en 404.
+ * **Libellé et destination.** `AlertOut.target` (2026-08-26) porte désormais un
+ * libellé lisible ET de quoi naviguer : le backend résout `source_id` — qui
+ * désigne un `RecordDeadline` / `StockLevel` / `StockLot`, jamais une fiche —
+ * jusqu'à la fiche ou au dépôt concerné. Avant cela, l'écran empruntait son
+ * texte à la notification liée (absente pour les alertes adressées à quelqu'un
+ * d'autre) et ne proposait aucun lien, faute de pouvoir en fabriquer un honnête.
+ *
+ * L'ordre de préférence reste explicite : la cible d'abord, la notification
+ * ensuite pour le détail, et le seul type de source quand tout manque. Une
+ * alerte dont la source a disparu n'a pas de `target` : la ligne reste affichée,
+ * simplement sans lien.
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -35,6 +39,7 @@ import {
   ALERT_STATUS_LABELS,
   ALERT_STATUS_TONE_CLASSES,
   alertSourceLabel,
+  alertTargetHref,
   canActOnAlert,
   describePalier,
 } from "@/lib/alert-format";
@@ -121,18 +126,25 @@ export default function AlertesPage() {
       cell: ({ row }) => {
         const alert = row.original;
         const notification = notificationByAlert.get(alert.id);
+        const target = alert.target;
+        const href = alertTargetHref(target);
+        const title = target?.label ?? notification?.title ?? alertSourceLabel(alert.source_type);
+
         return (
           <div className="min-w-0 space-y-0.5">
-            <p className="font-medium text-foreground">
-              {notification ? notification.title : alertSourceLabel(alert.source_type)}
-            </p>
+            {href ? (
+              <Link
+                href={href}
+                className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                {title}
+              </Link>
+            ) : (
+              <p className="font-medium text-foreground">{title}</p>
+            )}
             {notification ? (
               <p className="text-xs text-muted-foreground">{notification.body}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">
-                Aucune notification liée à votre compte — détail indisponible.
-              </p>
-            )}
+            ) : null}
             <p className="text-[0.7rem] text-muted-foreground">{alertSourceLabel(alert.source_type)}</p>
           </div>
         );

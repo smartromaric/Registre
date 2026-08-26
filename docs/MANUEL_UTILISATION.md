@@ -116,9 +116,14 @@ activée sur votre environnement — l'application vérifie toutes les échéanc
 et crée une alerte quand l'une d'elles approche : 60 jours avant, 30 jours
 avant, 7 jours avant, le jour même, puis tous les 3 jours en cas de retard.
 
-Les alertes apparaissent dans le centre de notifications. Quand vous
-renouvelez une échéance (nouvelle date saisie), l'alerte en cours se referme
-d'elle-même — vous n'avez rien à faire de plus.
+Les alertes apparaissent dans le centre de notifications (la cloche, en haut
+de l'écran) et sur l'écran **Alertes**, qui en garde l'historique complet même
+après acquittement. **Cliquez sur une alerte pour ouvrir directement la fiche
+concernée** — inutile de la retrouver à la main. Une alerte de stock vous
+amène à l'écran des dépôts.
+
+Quand vous renouvelez une échéance (nouvelle date saisie), l'alerte en cours se
+referme d'elle-même — vous n'avez rien à faire de plus.
 
 ## 6. Gérer un stock
 
@@ -168,16 +173,24 @@ vos clients : « sortie pleine » (une bouteille pleine part chez un client) et
 - **Vues enregistrées** — un jeu de filtres et un tri que vous nommez et
   retrouvez en un clic la prochaine fois. Chaque vue vous appartient ; vos
   collègues ont les leurs.
-- **Export** — la liste actuellement affichée s'exporte en un fichier CSV
-  (ouvrable dans Excel ou tout tableur), avec les libellés de vos champs en
-  en-tête.
+- **Export** — le bouton **Exporter**, sur la liste d'un modèle, télécharge
+  toutes ses fiches en un fichier CSV (ouvrable dans Excel ou tout tableur),
+  avec les libellés de vos champs en en-tête. C'est un droit dont dispose
+  **tous les rôles, y compris Lecteur**. L'export est plafonné à 10 000 lignes ;
+  au-delà, l'application vous prévient avant de télécharger plutôt que de vous
+  laisser découvrir un fichier incomplet. Il demande une connexion : hors
+  ligne, le bouton est désactivé, car votre appareil ne contient que les fiches
+  déjà consultées.
 - **Import** — pour reprendre un fichier existant : déposez-le, l'application
   propose une correspondance entre les colonnes du fichier et les champs du
   modèle (vous pouvez l'ajuster), puis vous montre un aperçu qui indique
   précisément quelles lignes seraient rejetées et pourquoi, avant toute
   validation. Une fois validé, l'import crée ce qui est valide et vous
   signale le reste — vous ne perdez jamais 200 lignes correctes à cause de 3
-  fautives. Le fichier doit être un CSV, les dates au format AAAA-MM-JJ.
+  fautives. Le fichier peut être un classeur Excel (.xlsx) ou un CSV encodé en
+  UTF-8. Pour un classeur, seule la **première feuille** est lue — le nom des
+  autres vous est indiqué. Les dates s'écrivent AAAA-MM-JJ dans un CSV ; dans un
+  classeur, une cellule mise en forme en date est reconnue telle quelle.
 
 ## 8. Le tableau de bord
 

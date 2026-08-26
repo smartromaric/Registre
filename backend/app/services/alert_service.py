@@ -1,4 +1,6 @@
 import uuid
+from collections import defaultdict
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 
 from sqlalchemy import select
@@ -16,9 +18,13 @@ from app.alerts.notify import (
     dispatch_stock_threshold_notifications,
 )
 from app.core.permissions import Action, role_can
-from app.models.alert import Alert, AlertStatus
+from app.models.alert import Alert, AlertSourceType, AlertStatus
 from app.models.membership import Membership
+from app.models.model_definition import FieldDefinition, ModelDefinition
+from app.models.record import Record, RecordDeadline
+from app.models.stock import ArticleVariant, Depot, StockLevel, StockLot
 from app.models.user import User
+from app.schemas.alert import AlertTarget
 from app.services.organization_service import PermissionDeniedError
 
 
@@ -62,6 +68,70 @@ class AlertService:
             stmt = stmt.where(Alert.status == status)
         stmt = stmt.order_by(Alert.created_at.desc())
         return list((await self.db.execute(stmt)).scalars().all())
+
+    async def resolve_targets(self, alerts: Sequence[Alert]) -> dict[uuid.UUID, AlertTarget]:
+        """Résout, pour un lot d'alertes, ce que chacune désigne réellement.
+
+        Trois requêtes au plus — une par type de source — quel que soit le nombre
+        d'alertes. Une résolution par alerte serait un N+1 sur un écran dont c'est
+        justement le rôle d'en afficher beaucoup.
+
+        Une alerte dont la source a disparu (fiche supprimée, lot soldé) n'apparaît
+        simplement pas dans le résultat : l'appelant n'affiche alors aucun lien,
+        plutôt qu'un lien fabriqué menant à une 404.
+        """
+        by_type: dict[AlertSourceType, set[uuid.UUID]] = defaultdict(set)
+        for alert in alerts:
+            by_type[alert.source_type].add(alert.source_id)
+
+        targets: dict[uuid.UUID, AlertTarget] = {}
+
+        if deadline_ids := by_type.get(AlertSourceType.DEADLINE):
+            stmt = (
+                select(RecordDeadline.id, Record.id, ModelDefinition.title_field_key, Record.data, FieldDefinition.label)
+                .join(Record, Record.id == RecordDeadline.record_id)
+                .join(ModelDefinition, ModelDefinition.id == Record.model_definition_id)
+                .join(FieldDefinition, FieldDefinition.id == RecordDeadline.field_definition_id)
+                .where(RecordDeadline.id.in_(deadline_ids))
+            )
+            for deadline_id, record_id, title_key, data, field_label in (await self.db.execute(stmt)).all():
+                subject = (data or {}).get(title_key) if title_key else None
+                subject = str(subject) if subject else "fiche sans titre"
+                targets[deadline_id] = AlertTarget(label=f"{field_label} — {subject}", record_id=record_id)
+
+        if level_ids := by_type.get(AlertSourceType.STOCK_THRESHOLD):
+            stmt = (
+                select(StockLevel.id, StockLevel.variant_id, StockLevel.depot_id, ArticleVariant.label, Depot.name)
+                .join(ArticleVariant, ArticleVariant.id == StockLevel.variant_id)
+                .join(Depot, Depot.id == StockLevel.depot_id)
+                .where(StockLevel.id.in_(level_ids))
+            )
+            for level_id, variant_id, depot_id, variant_label, depot_name in (await self.db.execute(stmt)).all():
+                label = f"Stock sous le seuil — {variant_label or 'Article'} · {depot_name}"
+                targets[level_id] = AlertTarget(label=label, depot_id=depot_id, variant_id=variant_id)
+
+        if lot_ids := by_type.get(AlertSourceType.LOT_EXPIRY):
+            stmt = (
+                select(
+                    StockLot.id, StockLot.variant_id, StockLot.depot_id, StockLot.lot_number,
+                    ArticleVariant.label, Depot.name,
+                )
+                .join(ArticleVariant, ArticleVariant.id == StockLot.variant_id)
+                .join(Depot, Depot.id == StockLot.depot_id)
+                .where(StockLot.id.in_(lot_ids))
+            )
+            for lot_id, variant_id, depot_id, lot_number, variant_label, depot_name in (
+                await self.db.execute(stmt)
+            ).all():
+                label = f"Lot {lot_number} — {variant_label or 'Article'} · {depot_name}"
+                targets[lot_id] = AlertTarget(label=label, depot_id=depot_id, variant_id=variant_id)
+
+        # La clé de sortie est l'identifiant de l'ALERTE, pas celui de la source :
+        # deux alertes (paliers différents) partagent la même source, et l'appelant
+        # raisonne en alertes.
+        return {
+            alert.id: target for alert in alerts if (target := targets.get(alert.source_id)) is not None
+        }
 
     async def acknowledge(
         self, organization_id: uuid.UUID, alert_id: uuid.UUID, actor: User, actor_membership: Membership

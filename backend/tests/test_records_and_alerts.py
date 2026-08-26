@@ -21,6 +21,7 @@ from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.record import Record, RecordDeadline
 from app.models.user import User
+from app.services.alert_service import AlertService
 
 
 async def _bootstrap_org_with_vehicle_model(
@@ -205,3 +206,121 @@ async def test_renewing_deadline_resolves_open_alert(db_session):
 
     alerts = (await db_session.execute(select(Alert).where(Alert.source_id == deadline.id))).scalars().all()
     assert all(a.status == AlertStatus.RESOLVED for a in alerts)
+
+
+# --- Résolution de la cible d'une alerte (2026-08-26) ------------------------
+#
+# `Alert` ne porte que `source_type` + `source_id`, et ce `source_id` désigne un
+# `RecordDeadline`, jamais une fiche. L'écran Alertes affichait donc des lignes
+# sur lesquelles il était impossible de cliquer. `AlertService.resolve_targets`
+# comble ce trou — et doit rester honnête quand la source a disparu.
+
+
+async def test_resolve_targets_points_a_deadline_alert_at_its_record(db_session):
+    org, user, model, field_visite = await _bootstrap_org_with_vehicle_model(db_session)
+
+    record = Record(
+        organization_id=org.id,
+        model_definition_id=model.id,
+        data={"immatriculation": "CE 456 AB"},
+        created_by_user_id=user.id,
+    )
+    db_session.add(record)
+    await db_session.flush()
+
+    deadline = RecordDeadline(
+        organization_id=org.id,
+        record_id=record.id,
+        field_definition_id=field_visite.id,
+        due_date=date.today() + timedelta(days=3),
+    )
+    db_session.add(deadline)
+    await db_session.flush()
+
+    new_alerts = await scan_organization_deadlines(db_session, org.id, date.today())
+    assert new_alerts
+    await db_session.flush()
+
+    alerts = list((await db_session.execute(select(Alert).where(Alert.source_id == deadline.id))).scalars().all())
+    targets = await AlertService(db_session).resolve_targets(alerts)
+
+    assert len(targets) == len(alerts)
+    target = targets[alerts[0].id]
+    # C'est bien la FICHE qui est désignée, pas l'échéance : c'est elle qui est navigable.
+    assert target.record_id == record.id
+    # Le libellé se suffit à lui-même — l'écran n'a plus à l'emprunter à la
+    # notification liée, qui peut manquer.
+    assert "CE 456 AB" in target.label
+    assert field_visite.label in target.label
+    # Une alerte d'échéance ne désigne aucun dépôt.
+    assert target.depot_id is None
+
+
+async def test_resolve_targets_stays_silent_when_the_record_is_gone(db_session):
+    """Une cible absente vaut mieux qu'un lien fabriqué : le frontend n'affiche
+    alors pas de lien, au lieu d'en proposer un qui finirait en 404."""
+    org, user, model, field_visite = await _bootstrap_org_with_vehicle_model(db_session)
+
+    record = Record(
+        organization_id=org.id,
+        model_definition_id=model.id,
+        data={"immatriculation": "CE 999 ZZ"},
+        created_by_user_id=user.id,
+    )
+    db_session.add(record)
+    await db_session.flush()
+
+    deadline = RecordDeadline(
+        organization_id=org.id,
+        record_id=record.id,
+        field_definition_id=field_visite.id,
+        due_date=date.today() + timedelta(days=3),
+    )
+    db_session.add(deadline)
+    await db_session.flush()
+
+    await scan_organization_deadlines(db_session, org.id, date.today())
+    await db_session.flush()
+    alerts = list((await db_session.execute(select(Alert).where(Alert.source_id == deadline.id))).scalars().all())
+    assert alerts
+
+    # La source disparaît après l'émission de l'alerte.
+    await db_session.delete(deadline)
+    await db_session.flush()
+
+    targets = await AlertService(db_session).resolve_targets(alerts)
+    assert targets == {}
+
+
+async def test_resolve_targets_batches_every_source_in_one_pass(db_session):
+    """Deux alertes issues de la même échéance (paliers différents) partagent une
+    source : la résolution doit rendre une entrée PAR ALERTE, pas par source."""
+    org, user, model, field_visite = await _bootstrap_org_with_vehicle_model(db_session)
+
+    record = Record(
+        organization_id=org.id,
+        model_definition_id=model.id,
+        data={"immatriculation": "CE 111 AA"},
+        created_by_user_id=user.id,
+    )
+    db_session.add(record)
+    await db_session.flush()
+
+    deadline = RecordDeadline(
+        organization_id=org.id,
+        record_id=record.id,
+        field_definition_id=field_visite.id,
+        due_date=date.today() - timedelta(days=1),
+    )
+    db_session.add(deadline)
+    await db_session.flush()
+
+    # Un balayage en retard produit plusieurs paliers pour la même échéance.
+    await scan_organization_deadlines(db_session, org.id, date.today())
+    await db_session.flush()
+
+    alerts = list((await db_session.execute(select(Alert).where(Alert.source_id == deadline.id))).scalars().all())
+    targets = await AlertService(db_session).resolve_targets(alerts)
+
+    assert len(targets) == len(alerts)
+    assert {t.record_id for t in targets.values()} == {record.id}

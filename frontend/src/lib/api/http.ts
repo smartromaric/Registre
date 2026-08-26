@@ -53,3 +53,39 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   }
   return (await response.json()) as T;
 }
+
+/**
+ * Même appel, mais la `Response` est rendue telle quelle.
+ *
+ * `apiRequest` termine systématiquement par `response.json()` : inutilisable
+ * pour un téléchargement (export CSV), qui renvoie du `text/csv` en pièce
+ * jointe. On partage ici l'en-tête d'authentification et surtout le traitement
+ * des erreurs — les dupliquer aurait fini par les faire diverger, et un export
+ * en échec afficherait alors un message différent du reste de l'application.
+ */
+export async function apiRequestRaw(path: string, init: ApiRequestInit = {}): Promise<Response> {
+  const { accessToken, headers, ...rest } = init;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...rest,
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...headers,
+      },
+    });
+  } catch {
+    throw new ApiError(
+      "Impossible de joindre le serveur Registre. Vérifiez votre connexion.",
+      0,
+      "network",
+    );
+  }
+
+  if (!response.ok) {
+    const parsed = await parseErrorBody(response);
+    throw new ApiError(parsed.message, response.status, "http", parsed.fieldErrors);
+  }
+  return response;
+}

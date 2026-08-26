@@ -1,4 +1,4 @@
-import type { AlertOut, AlertSourceType, AlertStatus, OrgRole } from "./api/types";
+import type { AlertOut, AlertSourceType, AlertStatus, AlertTarget, OrgRole } from "./api/types";
 import type { DueDateTone } from "./due-date-status";
 
 /**
@@ -85,4 +85,28 @@ export function describePalier(palier: string): PalierDescription {
 export function canActOnAlert(alert: AlertOut, userId: string | null, role: OrgRole | null): boolean {
   if (userId !== null && alert.recipient_user_id === userId) return true;
   return role === "admin" || role === "manager";
+}
+
+/**
+ * Où mène une alerte, ou `null` quand elle ne mène nulle part.
+ *
+ * Un seul endroit décide de cette traduction — l'écran Alertes et la cloche de
+ * l'en-tête doivent envoyer au même endroit, sans quoi cliquer sur la même
+ * alerte à deux endroits donnerait deux résultats.
+ *
+ * - Fiche : `/r/{id}` résout le modèle tout seul (voir cette route), ce qui
+ *   évite d'exposer `model_definition_id` dans la cible.
+ * - Stock : `/depots` est le SEUL écran de stock existant côté frontend — il n'y
+ *   a ni page article, ni vue des niveaux par dépôt (le backend, lui, les a).
+ *   On n'ajoute donc AUCUN paramètre de filtre : la page l'ignorerait, et un
+ *   lien qui prétend filtrer sans filtrer est un mensonge de plus. Le détail
+ *   (article, dépôt) est porté par `label`, qui lui est exact.
+ * - Rien de navigable (source supprimée) : `null`, et l'appelant n'affiche pas
+ *   de lien. Jamais de lien fabriqué qui finirait en 404.
+ */
+export function alertTargetHref(target: AlertTarget | null | undefined): string | null {
+  if (!target) return null;
+  if (target.record_id) return `/r/${target.record_id}`;
+  if (target.depot_id) return "/depots";
+  return null;
 }
