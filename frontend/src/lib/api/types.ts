@@ -987,6 +987,42 @@ export interface SearchHitOut {
   title: string;
 }
 
+/** Aperçu d'import (`POST .../records/import/preview`). Tout est calculé par le
+ * backend sur le fichier réellement téléversé — l'écran n'en dérive aucun compte.
+ *
+ * `preview_rows` : les 10 premières lignes brutes, cellules déjà ramenées au texte
+ * (une date Excel arrive donc en « AAAA-MM-JJ »). `sample_errors` : au plus 20
+ * lignes fautives, `row` étant l'index 0-based de la ligne *de données*, hors
+ * en-tête — d'où le +2 à l'affichage pour retrouver le numéro de ligne du tableur.
+ *
+ * `sheet_name`/`ignored_sheet_names` ne sont renseignés que pour un .xlsx : seule
+ * la première feuille est lue, les autres sont nommées pour être annoncées. */
+export interface ImportMappingSuggestion {
+  headers: string[];
+  suggested_mapping: Record<string, string | null>;
+  preview_rows: Record<string, string>[];
+  total_rows: number;
+  valid_row_count: number;
+  invalid_row_count: number;
+  sample_errors: ImportRowError[];
+  source_format: string;
+  sheet_name: string | null;
+  ignored_sheet_names: string[];
+}
+
+/** `errors` : {clé_de_champ: message}. La clé `_` porte un refus global de la
+ * ligne (droits insuffisants, par exemple), pas un champ du modèle. */
+export interface ImportRowError {
+  row: number;
+  errors: Record<string, string>;
+}
+
+export interface ImportCommitResult {
+  created: number;
+  failed: number;
+  errors: ImportRowError[];
+}
+
 // =========================================================================
 // Synchronisation hors-ligne (cahier des charges §11.3) — mode ADDITIF, ne pas
 // toucher aux types ci-dessus. Miroir exact de backend/app/schemas/sync.py.

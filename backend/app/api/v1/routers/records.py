@@ -23,7 +23,7 @@ from app.schemas.record import (
 )
 from app.schemas.search import ImportCommitResult, ImportMappingSuggestion
 from app.services.export_service import export_records_csv
-from app.services.import_service import build_rows, parse_csv, suggest_mapping
+from app.services.import_service import ImportParseError, build_rows, parse_spreadsheet, suggest_mapping
 from app.services.model_definition_service import ModelDefinitionService
 from app.services.organization_service import PermissionDeniedError
 from app.services.record_service import RecordService
@@ -273,26 +273,49 @@ async def export_records(
 async def preview_import(
     model_id: uuid.UUID,
     file: UploadFile,
+    mapping: str | None = Form(default=None),
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> ImportMappingSuggestion:
+    """`mapping` (optionnel) : la correspondance déjà corrigée à l'écran. Sans lui,
+    l'aperçu est calculé sur la correspondance suggérée automatiquement.
+
+    L'accepter est ce qui rend les compteurs honnêtes : dès que l'utilisateur
+    corrige une colonne, « N lignes valides » doit décrire *sa* correspondance, pas
+    celle devinée au départ.
+    """
     model_service = ModelDefinitionService(db)
     model = await model_service.get(membership.organization_id, model_id)
     if model is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modèle introuvable.")
 
-    headers, raw_rows = parse_csv(await file.read())
-    mapping = suggest_mapping(headers, model.field_definitions)
-    rows = build_rows(raw_rows, {h: k for h, k in mapping.items() if k}, model.field_definitions)
+    try:
+        sheet = parse_spreadsheet(await file.read(), file.filename, file.content_type)
+    except ImportParseError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    suggested = suggest_mapping(sheet.headers, model.field_definitions)
+    if mapping is None:
+        applied = {h: k for h, k in suggested.items() if k}
+    else:
+        try:
+            applied = json.loads(mapping)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "mapping doit être un objet JSON.") from exc
+
+    rows = build_rows(sheet.rows, applied, model.field_definitions)
 
     return ImportMappingSuggestion(
-        headers=headers,
-        suggested_mapping=mapping,
-        preview_rows=raw_rows[:10],
+        headers=sheet.headers,
+        suggested_mapping=suggested,
+        preview_rows=sheet.rows[:10],
         total_rows=len(rows),
         valid_row_count=sum(1 for r in rows if r.is_valid),
         invalid_row_count=sum(1 for r in rows if not r.is_valid),
         sample_errors=[{"row": r.index, "errors": r.errors} for r in rows if not r.is_valid][:20],
+        source_format=sheet.source_format,
+        sheet_name=sheet.sheet_name,
+        ignored_sheet_names=sheet.ignored_sheet_names,
     )
 
 
@@ -308,7 +331,7 @@ async def commit_import(
     membership: Membership = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> ImportCommitResult:
-    """`mapping` : JSON {"colonne_csv": "cle_de_champ"} — celui validé par l'utilisateur
+    """`mapping` : JSON {"en_tete_colonne": "cle_de_champ"} — celui validé par l'utilisateur
     à l'écran d'aperçu (§9 : « correspondance des colonnes et aperçu avant validation »).
     """
     model_service = ModelDefinitionService(db)
@@ -320,8 +343,11 @@ async def commit_import(
     except json.JSONDecodeError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "mapping doit être un objet JSON.") from exc
 
-    _headers, raw_rows = parse_csv(await file.read())
-    rows = build_rows(raw_rows, mapping_dict, model.field_definitions)
+    try:
+        sheet = parse_spreadsheet(await file.read(), file.filename, file.content_type)
+    except ImportParseError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    rows = build_rows(sheet.rows, mapping_dict, model.field_definitions)
 
     record_service = RecordService(db)
     created = 0

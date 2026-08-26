@@ -18,6 +18,11 @@ class ImportMappingSuggestion(BaseModel):
     valid_row_count: int
     invalid_row_count: int
     sample_errors: list[dict]
+    # Format réellement lu et, pour un classeur, la feuille retenue : seule la première
+    # est importée, les autres sont nommées ici pour que l'écran le dise (§9).
+    source_format: str = "csv"
+    sheet_name: str | None = None
+    ignored_sheet_names: list[str] = []
 
 
 class ImportCommitResult(BaseModel):

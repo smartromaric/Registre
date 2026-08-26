@@ -1,5 +1,7 @@
 import { apiRequest } from "./http";
 import type {
+  ImportCommitResult,
+  ImportMappingSuggestion,
   RecordCreate,
   RecordEventCreate,
   RecordEventOut,
@@ -96,6 +98,54 @@ export function archiveRecord(
   return apiRequest<RecordOut>(
     `/organizations/${organizationId}/records/${recordId}/archive`,
     { accessToken, method: "POST" },
+  );
+}
+
+/**
+ * Import initial (cahier des charges §9) — deux temps, deux appels, le **même
+ * fichier** envoyé aux deux : le backend ne garde rien entre l'aperçu et la
+ * validation, il relit le fichier à chaque fois.
+ *
+ * Le corps est un `FormData` : `apiRequest` omet alors son `Content-Type` JSON
+ * pour laisser le navigateur poser le `multipart/form-data; boundary=...`
+ * (voir `http.ts`). `mapping` part en champ de formulaire *encodé en JSON*, pas
+ * en query string — même contrainte FastAPI que `field_key` sur l'envoi de
+ * document : une route qui mêle `UploadFile` et `Form(...)` lit tout dans le corps.
+ */
+export function previewImport(
+  accessToken: string,
+  organizationId: string,
+  modelId: string,
+  file: File,
+  mapping?: Record<string, string>,
+): Promise<ImportMappingSuggestion> {
+  const form = new FormData();
+  form.set("file", file);
+  // Sans `mapping`, l'aperçu est calculé sur la correspondance suggérée. Dès que
+  // l'utilisateur en corrige une, on la renvoie : les compteurs doivent décrire
+  // la correspondance réellement retenue, pas celle devinée au départ.
+  if (mapping) form.set("mapping", JSON.stringify(mapping));
+  return apiRequest<ImportMappingSuggestion>(
+    `/organizations/${organizationId}/model-definitions/${modelId}/records/import/preview`,
+    { accessToken, method: "POST", body: form },
+  );
+}
+
+/** `mapping` : {en-tête de colonne: clé de champ}. N'y mettre que les colonnes
+ * réellement importées — une colonne absente est ignorée par le backend. */
+export function commitImport(
+  accessToken: string,
+  organizationId: string,
+  modelId: string,
+  file: File,
+  mapping: Record<string, string>,
+): Promise<ImportCommitResult> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("mapping", JSON.stringify(mapping));
+  return apiRequest<ImportCommitResult>(
+    `/organizations/${organizationId}/model-definitions/${modelId}/records/import/commit`,
+    { accessToken, method: "POST", body: form },
   );
 }
 

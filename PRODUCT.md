@@ -527,14 +527,29 @@ instruction contrairement à `now()` (migration `0fdf30005a2b`).
 - **Export** (§9) : la vue courante (filtres + colonnes) exportée en CSV, respecte
   les libellés des champs. Plafonné à 10 000 lignes par export (au-delà, un export
   en tâche de fond serait nécessaire — non construit, volume jugé suffisant).
-- **Import initial** (§9, §18.1) : reprise d'un fichier CSV, correspondance des
-  colonnes suggérée automatiquement (comparaison des en-têtes aux libellés/clés de
-  champs), aperçu qui signale précisément quelles lignes échoueraient et pourquoi
-  **avant** validation, puis import qui crée ce qui est valide et rapporte le
-  reste — jamais un tout-ou-rien qui bloquerait 197 lignes correctes à cause de 3
-  fautives. Limite assumée : CSV encodé en UTF-8 uniquement, dates au format
-  AAAA-MM-JJ ; la reprise directe de classeurs .xlsx est un raffinement possible
-  sans changer cette mécanique.
+- **Import initial** (§9, §18.1) : reprise d'un fichier CSV **ou d'un classeur
+  Excel .xlsx**, correspondance des colonnes suggérée automatiquement (comparaison
+  des en-têtes aux libellés/clés de champs) et corrigeable à l'écran, aperçu qui
+  signale précisément quelles lignes échoueraient et pourquoi **avant** validation,
+  puis import qui crée ce qui est valide et rapporte le reste — jamais un
+  tout-ou-rien qui bloquerait 197 lignes correctes à cause de 3 fautives. Écran
+  dédié `/models/[modelId]/import`, ouvert aux rôles qui peuvent créer une fiche
+  (admin, gestionnaire, opérateur — §4.2), jamais proposé à un lecteur.
+  - Le .xlsx est lu avec openpyxl : les cellules sont ramenées au texte avant
+    validation, ce qui règle le piège des dates (openpyxl rend un `datetime` là où
+    le validateur attend « AAAA-MM-JJ ») et celui des entiers stockés en flottants
+    (`12345.0` → `12345`, à ne pas laisser fuir dans un champ texte).
+  - L'aperçu accepte la correspondance déjà corrigée par l'utilisateur : les
+    compteurs « N lignes valides / N refusées » décrivent toujours la
+    correspondance réellement retenue, jamais celle devinée au départ.
+  - Limites assumées, dites à l'écran plutôt que silencieuses : seule la **première
+    feuille** d'un classeur est lue (les autres sont nommées dans l'aperçu) ; le CSV
+    doit être encodé en UTF-8 ; l'ancien format binaire `.xls` est refusé avec un
+    message explicite ; les formules sont lues via leur dernier résultat enregistré
+    par Excel. Écart connu avec le §18.1 : Awa y corrige les lignes fautives
+    directement à l'écran — ici l'aperçu **désigne** la ligne et le motif, la
+    correction se fait dans le fichier source avant de le redéposer. L'édition
+    cellule par cellule dans l'aperçu reste à construire.
 
 **Deux bugs réels trouvés en testant le parcours complet via l'API (pas seulement
 via les tests automatisés)**, corrigés au passage : (1) un paramètre de formulaire

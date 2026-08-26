@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CloudOff, FilePlus2, Layers, Settings } from "lucide-react";
+import { CloudOff, FilePlus2, Layers, Settings, Upload } from "lucide-react";
 
 import { buildRecordColumns } from "@/components/fiches/record-columns";
 import { ModelIcon } from "@/components/fiches/model-icon";
@@ -34,6 +34,7 @@ export default function ModelRecordsPage() {
   const { accessToken, currentOrganizationId, currentOrganization } = useAuth();
   const [pageIndex, setPageIndex] = useState(0);
   const [servedFromCache, setServedFromCache] = useState(false);
+  const canCreateRecords = currentOrganization ? currentOrganization.my_role !== "reader" : false;
 
   const modelQuery = useQuery({
     queryKey: ["model-definition", currentOrganizationId, modelId],
@@ -138,6 +139,16 @@ export default function ModelRecordsPage() {
               <Settings className="size-4" />
             </Link>
           </Button>
+          {/* Importer crée des fiches : même droit que « Nouvelle fiche »
+              (CREATE_EDIT_RECORD, §4.2) — jamais proposé à un lecteur. */}
+          {canCreateRecords ? (
+            <Button variant="outline" asChild>
+              <Link href={`/models/${model.id}/import`}>
+                <Upload className="size-4" />
+                Importer
+              </Link>
+            </Button>
+          ) : null}
           <Button onClick={() => router.push(`/models/${model.id}/records/new`)}>
             <FilePlus2 className="size-4" />
             Nouvelle fiche
