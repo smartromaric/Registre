@@ -76,17 +76,28 @@ réponse change :
 
 ## 5. Architecture générale
 
-Monorepo à deux applications, séparées par un contrat d'API explicite (OpenAPI
-généré par FastAPI, consommé par un client TypeScript généré côté frontend) :
+Monorepo à trois applications. Les deux premières sont séparées par un contrat
+d'API explicite (OpenAPI généré par FastAPI, consommé par un client TypeScript
+généré côté frontend) ; la troisième ne parle à aucune des deux.
 
 ```
 Registre/
   backend/     API FastAPI — voir backend/README.md
   frontend/    Application Next.js — voir frontend/README.md
+  site/        Site vitrine (statique) — voir site/README.md
   docs/        Manuel utilisateur, notes complémentaires
   docker-compose.yml   Postgres, Redis, MinIO pour le dev local
   PRODUCT.md   ce document
 ```
+
+`site/` est délibérément une application à part, et non une route de `frontend/`.
+Deux raisons, l'une commerciale et l'autre technique : sur l'offre gratuite de
+Render un service web s'endort au bout de 15 minutes, ce qui est supportable
+pour l'application mais rédhibitoire pour une page qui doit convaincre un
+inconnu — un site statique, lui, ne dort jamais ; et une page marketing n'a
+aucune raison de traîner le service worker, l'authentification et le cache de
+requêtes de l'application. Le seul lien entre les deux est
+`NEXT_PUBLIC_APP_URL`, figée à la construction du site.
 
 Principe directeur (hérité du playbook joint, généralisé au-delà du site
 vitrine) : **un seul endroit qui écrit une vérité donnée**. Le cloisonnement
@@ -1343,6 +1354,79 @@ la ramènerait.
   comme le faisait déjà la vue lecture. C'était une **seconde** cause du
   symptôme « l'image ne s'affiche pas », distincte du lien relatif corrigé
   au §10.15.
+
+### 10.18 Site vitrine animé au scroll (2026-08-26)
+
+Troisième application du dépôt (`site/`), construite selon le
+[playbook](./playbook.md) joint. Objectif commercial : amener un visiteur
+inconnu jusqu'à l'inscription.
+
+**La mise en scène a été validée avant la première ligne de code** (playbook §1,
+« le point qui change tout »). Un seul objet — *une fiche* — vit derrière tout le
+hero et le traverse en six états : les feuillets épars qui s'empilent, la fiche
+qui écrit ses champs, l'échéance qui mûrit, l'alerte qui se détache, la coupure
+réseau, puis la caméra qui recule sur les six modèles. Les bornes des phases
+vivent dans un seul fichier (`lib/config.ts`) : régler l'animation est une
+édition de deux nombres.
+
+**Aucun contenu inventé** (playbook §7). Chaque affirmation de `content/fr.ts`
+porte en commentaire sa source dans le cahier des charges. Les tarifs sont ceux
+du §12.1 (5 000 / 25 000 / 45 000 FCFA, quotas et utilisateurs compris) ; la
+fiche animée reprend les exemples du §5.2 et du §8, chauffeur et immatriculation
+inclus. Trois honnêtetés sont écrites plutôt qu'escamotées : les montants sont
+des valeurs par défaut ajustables, un quota atteint ne bloque QUE l'envoi de
+fichiers, et **aucun paiement en ligne n'est intégré** — le règlement se fait
+hors plateforme.
+
+**Ce que les tests ont trouvé, et que la relecture n'aurait jamais vu.** C'est le
+point du playbook §4, vérifié une fois de plus : tous les défauts sérieux sont
+venus de la planche de captures et des tests, aucun de la relecture.
+
+- **`@theme` au lieu de `@theme inline`.** Sans `inline`, Tailwind v4 résout les
+  `var()` à la compilation et retient la *dernière* palette déclarée. `--bg` et
+  `--fg`, appliqués directement en CSS, basculaient bien ; mais tous les
+  utilitaires (`text-muted`, `bg-surface`, `border-line`…) restaient figés sur le
+  thème clair. Le thème sombre affichait un fond sombre avec les couleurs du
+  thème clair, sans la moindre erreur.
+- **Un `transform` silencieusement invalide.** `scale(min(1, 92vw / 880))` mélange
+  un nombre et une longueur : le navigateur jette la propriété entière. La scène
+  n'a jamais été mise à l'échelle. L'échelle est désormais calculée en nombres,
+  dans la boucle de rendu, à partir d'un `ResizeObserver`.
+- **La fiche recouvrait le titre.** Corrigé non pas au pixel mais en changeant la
+  mise en page : légende, puis scène dans la place qui reste, puis appels à
+  l'action. Le recouvrement devient structurellement impossible.
+- **Un bouton portant `hidden` et qui s'affichait.** Entre deux utilitaires
+  `display`, c'est l'ordre dans la feuille générée qui tranche, jamais l'ordre
+  dans l'attribut `class`.
+- **Contraste.** Un balayage mesure le rapport de luminance de *tout* le texte de
+  la page contre son fond réellement composé, dans les deux thèmes. Il a montré
+  que le corail de marque de l'application (L 0,6) plafonne à 4,12:1 sous le texte
+  blanc des boutons — sous le minimum AA. Le site le pose à 0,55, même teinte.
+  C'est le **seul** écart avec la charte, et il est mesuré.
+
+**Une erreur de méthode, notée parce qu'elle se reproduira.** Le premier balayage
+de contraste basculait `data-theme` puis lisait `getComputedStyle` dans la
+foulée — ce qui renvoie encore l'ANCIENNE couleur, le recalcul n'ayant pas eu
+lieu. J'ai accusé la CSS, qui était juste, et « corrigé » trois couleurs qui
+n'avaient rien. Un contexte de navigateur neuf par thème règle la question, et
+correspond en plus à ce que vit un vrai visiteur. Une fois la mesure fiable, une
+seule des trois corrections s'est avérée nécessaire ; les deux autres, ainsi
+qu'une famille de jetons `*-ink` introduite pour rien, ont été supprimées.
+
+**Piège d'outillage** : le serveur de développement de Next 16 renvoie **403 sur
+ses propres chunks** quand la page est servie sur `127.0.0.1` plutôt que
+`localhost`. Le HTML s'affiche normalement, rien ne s'hydrate, et les tests
+échouent sur des délais d'attente qui semblent venir de l'animation.
+
+**Accessibilité et performance** (playbook §6) : mouvement réduit pris en charge
+par un hero statique où les six phases restent lisibles en texte ; scroll lissé
+désactivé dans ce mode ; sections révélées par un `IntersectionObserver` qui se
+débranche après le premier déclenchement ; espaces fines insécables centralisées
+dans `lib/typography.ts` et vérifiées au rendu ; pied de page rendu hors de
+`<main>` pour porter réellement le rôle `contentinfo`.
+
+**Déploiement** : service `registre-site` de `render.yaml`, en runtime `static`.
+
 
 ## 11. Manuel utilisateur
 

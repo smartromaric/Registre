@@ -94,3 +94,34 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+
+  # --- Site vitrine --------------------------------------------------------
+  # Un site STATIQUE, et c'est délibéré : sur l'offre gratuite, un service web
+  # s'endort au bout de 15 minutes d'inactivité et le visiteur suivant attend
+  # près d'une minute. Pour l'application c'est supportable — l'utilisateur sait
+  # où il va. Pour une page d'accueil qui doit convaincre un inconnu, c'est
+  # rédhibitoire. Un site statique, lui, ne dort jamais.
+  #
+  # C'est aussi pourquoi il ne partage pas le déploiement du frontend : la page
+  # traînerait le service worker, l'authentification et le cache de requêtes de
+  # l'application, pour rien.
+  - type: web
+    name: registre-site
+    runtime: static
+    rootDir: site
+    buildCommand: npm ci && npm run build
+    staticPublishPath: out
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # L'adresse de l'application, vers laquelle pointent tous les appels à
+      # l'action. Figée à la construction (export statique) : changer cette
+      # valeur impose de relancer le déploiement du site.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+    routes:
+      # Export statique : les URL inconnues doivent retomber sur la page, sinon
+      # un rechargement sur une ancre renvoie une 404 du serveur de fichiers.
+      - type: rewrite
+        source: /*
+        destination: /index.html

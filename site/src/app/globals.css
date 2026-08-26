@@ -1,0 +1,304 @@
+@import "tailwindcss";
+
+/*
+ * Charte « corail » — reprise à l'identique de l'application (frontend/src/app/globals.css,
+ * PRODUCT.md §10.17) pour qu'un visiteur qui clique sur « Essayer » ne change pas d'univers.
+ * Teinte de marque : 28° (Salmon). Neutres volontairement tièdes (~40°, chroma < 0,02) —
+ * un gris bleuté sous un accent corail donne un rendu « pas choisi ».
+ *
+ * PLAYBOOK §3, « un jeton pour le thème » : le voile (`--color-veil`) est la couleur des
+ * surfaces translucides et des filets. On n'écrit JAMAIS `bg-white/10` ici, on écrit
+ * `bg-veil/10` — redéfinir cette seule variable fait basculer la page entière.
+ */
+/*
+ * `@theme inline` et NON `@theme` — piège coûteux, trouvé par le test de contraste.
+ *
+ * Sans `inline`, Tailwind v4 RÉSOUT ces `var()` au moment de la compilation : il
+ * prend la dernière déclaration de `--muted` qu'il trouve — celle du thème clair,
+ * écrite plus bas — et l'écrit en dur dans chaque utilitaire. Résultat : `--bg` et
+ * `--fg`, appliqués directement en CSS sur `body`, basculaient bien, mais TOUS les
+ * utilitaires (`text-muted`, `bg-surface`, `border-line`, `text-primary`…)
+ * restaient bloqués sur la palette claire. Le thème sombre affichait un fond
+ * sombre avec les couleurs du thème clair, sans la moindre erreur.
+ *
+ * `inline` conserve la référence `var(--muted)` dans l'utilitaire, qui suit donc
+ * la cascade — et le thème.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-veil: var(--veil);
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-title), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Thème sombre : celui par défaut du site vitrine. */
+:root {
+  --bg: oklch(0.12 0.008 35);
+  --fg: oklch(0.96 0.006 45);
+  --muted: oklch(0.68 0.012 40);
+  --surface: oklch(0.16 0.012 35);
+  --line: oklch(0.28 0.014 38);
+  --primary: oklch(0.735 0.152 28);
+  --primary-fg: oklch(0.18 0.03 28);
+  /* La marque et l'alarme ne peuvent pas être la même couleur : le produit doit
+     distinguer « action de marque » et « échéance en retard » d'un coup d'œil. */
+  --danger: oklch(0.62 0.19 15);
+  --warning: oklch(0.78 0.14 65);
+  --success: oklch(0.72 0.11 165);
+  /* Le voile est clair sur fond sombre. Une vraie couleur, pas un triplet RVB :
+     Tailwind v4 compile `bg-veil/10` en `color-mix(…, var(--color-veil) 10%, transparent)`,
+     qui exige une couleur valide. */
+  --veil: #ffffff;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: oklch(0.99 0.005 45);
+  --fg: oklch(0.2 0.015 30);
+  --muted: oklch(0.48 0.018 40);
+  --surface: oklch(1 0 0);
+  --line: oklch(0.9 0.01 40);
+  /* Les cinq corails fournis sont tous clairs (L 0,61 → 0,79) : aucun ne porte du
+     texte blanc lisible en fond de bouton. Sur fond clair on assombrit, à teinte égale. */
+  /* Seul écart avec la charte de l'application (qui pose 0,6), et il est mesuré :
+     à 0,6, le texte blanc des boutons d'action plafonne à 4,12:1 sur ce corail —
+     sous le minimum AA de 4,5:1. À 0,55, même teinte, le seuil est franchi. C'est
+     le seul changement nécessaire : tout le reste de la charte passe tel quel. */
+  --primary: oklch(0.55 0.175 27);
+  --primary-fg: oklch(0.99 0.01 30);
+  --danger: oklch(0.52 0.2 15);
+  --warning: oklch(0.62 0.14 65);
+  --success: oklch(0.55 0.1 165);
+  /* Et il devient sombre sur fond clair — c'est tout ce qu'il y a à changer. */
+  --veil: oklch(0.18 0.02 32);
+
+  color-scheme: light;
+}
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  /* Lenis pilote le défilement : laisser le navigateur lisser en plus donne un
+     conflit visible (le scroll « rattrape » après l'arrêt du geste). */
+  scroll-behavior: auto;
+}
+
+/*
+ * Règles de fonctionnement de Lenis, écrites à la main plutôt qu'importées.
+ * PLAYBOOK §5 : la CSS d'une librairie bat les utilitaires Tailwind, qui vivent
+ * dans `@layer utilities` — toute CSS hors layer les emporte, quelle que soit la
+ * spécificité. Ces règles sont donc volontairement hors layer, et là où je peux
+ * les relire, plutôt que planquées dans un import qui surprendra plus tard.
+ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/*
+ * Le motif de fond — repris des cartes de l'application : une trame de points
+ * corail très diluée, plus deux nappes radiales. Il donne de la matière sans
+ * jamais entrer en concurrence avec le texte.
+ */
+.page-motif::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--primary), transparent 92%) 1px, transparent 0),
+    radial-gradient(ellipse 70% 50% at 12% -5%, color-mix(in oklch, var(--primary), transparent 88%), transparent 62%),
+    radial-gradient(ellipse 60% 45% at 92% 8%, color-mix(in oklch, var(--primary), transparent 92%), transparent 60%);
+  background-size:
+    22px 22px,
+    100% 100%,
+    100% 100%;
+}
+
+/*
+ * Apparition au défilement, pilotée par `components/ui/Reveal.tsx`.
+ * Hors layer, donc prioritaire sur les utilitaires Tailwind qui pourraient poser
+ * une opacité concurrente (playbook §5).
+ */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 720ms var(--ease-out-soft),
+    transform 720ms var(--ease-out-soft);
+}
+
+[data-reveal][data-revealed="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/*
+ * Le motif des cartes — la demande explicite du client : « des motifs dedans,
+ * qui respectent la charte graphique ». Une trame de points corail plus une
+ * nappe d'angle. Posé en `::before` pour ne jamais interférer avec le contenu.
+ */
+.card-motif {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.card-motif::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--card-accent, var(--primary)), transparent 88%) 1px, transparent 0),
+    radial-gradient(
+      ellipse 68% 58% at 100% 0%,
+      color-mix(in oklch, var(--card-accent, var(--primary)), transparent 86%),
+      transparent 64%
+    );
+  background-size:
+    18px 18px,
+    100% 100%;
+  opacity: 0.85;
+  transition: opacity 500ms var(--ease-out-soft);
+}
+
+.card-motif:hover::before {
+  opacity: 1;
+}
+
+/* Liseré haut : le rappel de couleur qui « signe » la carte. */
+.card-motif::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--card-accent, var(--primary)), transparent 40%) 45%,
+    transparent
+  );
+}
+
+/* Filet corail réutilisé en tête de section et sous les titres. */
+.rule-brand {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--primary), transparent 30%),
+    color-mix(in oklch, var(--primary), transparent 90%)
+  );
+}
+
+/* Texte en dégradé pour les titres — lisible parce que les deux bornes sont claires. */
+.text-gradient {
+  background: linear-gradient(
+    92deg,
+    var(--fg) 8%,
+    color-mix(in oklch, var(--primary), var(--fg) 25%) 58%,
+    var(--fg) 96%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/*
+ * PLAYBOOK §6, « mouvement réduit ».
+ * `prefers-reduced-motion` n'est pas une option. Le hero reste lisible : la
+ * chronologie est figée sur un état choisi (voir `Hero.tsx`, `REDUCED_PROGRESS`),
+ * et tout ce qui est purement décoratif s'arrête.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Cible de focus visible partout — Radix n'est pas là pour le faire à notre place. */
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
