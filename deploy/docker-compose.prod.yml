@@ -1,0 +1,198 @@
+# Registre — pile de production sur un serveur unique.
+#
+#   caddy   façade HTTPS, certificats Let's Encrypt automatiques
+#   site    site vitrine (fichiers statiques)
+#   web     application Next.js
+#   api     API FastAPI (exécute aussi les migrations au démarrage)
+#   worker  worker Celery
+#   beat    planificateur Celery — le balayage nocturne du §8.2
+#   db      PostgreSQL 16, deux rôles
+#   redis   file de messages de Celery
+#
+# Aucun port applicatif n'est publié sur l'hôte : seul `caddy` expose 80 et 443.
+# `db` et `redis` ne sont joignables que depuis le réseau interne de la pile.
+#
+# Lancement :  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+name: registre
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REGISTRE_APP_PASSWORD: ${REGISTRE_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # N'est exécuté qu'à la PREMIÈRE initialisation, sur un volume vide.
+      # Modifier ce script après coup n'a donc aucun effet sur une base existante.
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # `--save ''` : aucune persistance sur disque. Redis ne sert ici que de file
+    # de messages ; une tâche perdue au redémarrage est rejouée le lendemain, et
+    # le balayage est idempotent par construction (§8.2).
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      # Le rôle RESTREINT au runtime, le propriétaire pour les migrations :
+      # c'est cette séparation qui donne leur effet aux politiques RLS.
+      DATABASE_URL: postgresql+asyncpg://registre_app:${REGISTRE_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL_MIGRATIONS: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      API_PUBLIC_URL: https://${API_DOMAIN}
+      FRONTEND_BASE_URL: https://${APP_DOMAIN}
+      CORS_ORIGINS: '["https://${APP_DOMAIN}","https://${SITE_DOMAIN}"]'
+      # Stockage sur le disque du serveur : un VPS a un système de fichiers
+      # persistant, contrairement aux offres gratuites en conteneur éphémère.
+      # Le volume `storage` est donc la sauvegarde à ne pas oublier.
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_PATH: /var/registre/storage
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-notifications@registre.app}
+    volumes:
+      - storage:/var/registre/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    command: ["worker"]
+    restart: unless-stopped
+    depends_on:
+      # Attend que l'API soit SAINE, donc que les migrations soient passées :
+      # un worker qui démarre sur une base vide échouerait à chaque tâche.
+      api:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://registre_app:${REGISTRE_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL_MIGRATIONS: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET}
+      API_PUBLIC_URL: https://${API_DOMAIN}
+      FRONTEND_BASE_URL: https://${APP_DOMAIN}
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_PATH: /var/registre/storage
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-notifications@registre.app}
+    volumes:
+      - storage:/var/registre/storage
+
+  beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    command: ["beat"]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://registre_app:${REGISTRE_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET}
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        # Figées dans le bundle : changer ces valeurs impose `--build`, pas un
+        # simple redémarrage. Voir le commentaire du Dockerfile.
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      # Réservé : le frontend ne s'en sert pas encore (le cookie porte directement
+      # le refresh token émis par le backend, voir frontend/README.md). Fourni dès
+      # maintenant pour qu'une future signature côté serveur n'oblige pas à
+      # regenerer un secret sur une pile déjà en service.
+      SESSION_SECRET: ${SESSION_SECRET}
+
+  site:
+    build:
+      context: ../site
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+      - site
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Les certificats obtenus survivent aux redémarrages. Sans ce volume,
+      # chaque `up` en redemanderait de nouveaux et Let's Encrypt finirait par
+      # refuser (limite de 5 certificats identiques par semaine).
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  pgdata:
+  storage:
+  caddy-data:
+  caddy-config:

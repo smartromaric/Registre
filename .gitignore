@@ -49,3 +49,7 @@ minio-data/
 # --- Logs ---
 *.log
 npm-debug.log*
+
+# --- Deploiement ---
+# Secrets de production generes sur le serveur : jamais versionnes.
+deploy/.env

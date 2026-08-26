@@ -1,0 +1,29 @@
+# Serveur de fichiers du site vitrine, DERRIÈRE le Caddy d'entrée.
+#
+# Il ne fait ni TLS ni redirection : c'est le rôle du Caddy de façade
+# (deploy/Caddyfile), qui obtient les certificats et répartit les domaines.
+
+:80 {
+	root * /srv
+	encode gzip zstd
+
+	# Export statique : une URL inconnue doit rendre la page d'accueil plutôt
+	# qu'une 404 du serveur de fichiers — un rechargement sur une ancre
+	# (#tarifs) ou un lien partagé tomberait sinon sur une page vide.
+	try_files {path} {path}/ {path}.html /index.html
+	file_server
+
+	# Les fichiers de Next portent une empreinte dans leur nom : ils peuvent
+	# être mis en cache indéfiniment. Le HTML, lui, ne le peut pas — c'est lui
+	# qui référence les nouvelles empreintes après un déploiement.
+	@immutable path /_next/static/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	@html path *.html /
+	header @html Cache-Control "public, max-age=0, must-revalidate"
+
+	log {
+		output stdout
+		format console
+	}
+}

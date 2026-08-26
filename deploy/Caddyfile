@@ -1,0 +1,69 @@
+# Façade HTTPS — un seul point d'entrée, trois domaines.
+#
+# POURQUOI DES DOMAINES ET PAS L'ADRESSE IP.
+#
+# Le cookie de session est posé avec `Secure` en production
+# (frontend/src/lib/session.ts) : un navigateur REFUSE un tel cookie servi en
+# clair. Sur `http://<ip>`, la session ne survivrait donc à aucun rechargement —
+# l'utilisateur serait renvoyé vers l'écran de connexion à chaque fois. Il faut
+# du HTTPS, et Let's Encrypt ne délivre pas de certificat pour une adresse IP
+# nue : il faut un nom.
+#
+# `sslip.io` en fournit un gratuitement, sans inscription ni enregistrement :
+# tout nom de la forme `<quelque-chose>.194-29-101-141.sslip.io` résout vers
+# 194.29.101.141. Let's Encrypt sait valider ces noms, et Caddy obtient puis
+# renouvelle les certificats tout seul.
+#
+# Le jour où un vrai domaine est acheté, seules les trois lignes de `.env`
+# changent — rien ici.
+
+{
+	email {$ACME_EMAIL}
+	# Journal en console : c'est `docker compose logs` qui les collecte.
+	log {
+		output stdout
+		format console
+	}
+}
+
+# --- Site vitrine ------------------------------------------------------------
+{$SITE_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy site:80
+}
+
+# --- Application -------------------------------------------------------------
+{$APP_DOMAIN} {
+	encode gzip zstd
+
+	# En-têtes de sécurité. `Strict-Transport-Security` n'est posé que parce que
+	# TOUT est en HTTPS ici : le poser sur un déploiement partiellement en clair
+	# rendrait le site inaccessible jusqu'à expiration du cache du navigateur.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy web:3000
+}
+
+# --- API ---------------------------------------------------------------------
+{$API_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	# Corps volumineux : téléversement de photos et de classeurs Excel.
+	request_body {
+		max_size 50MB
+	}
+
+	reverse_proxy api:8000
+}
