@@ -29,13 +29,21 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
-      # Render fournit l'URL au format postgresql:// ; SQLAlchemy a besoin du
-      # pilote explicite. Voir DEPLOIEMENT.md : à recopier à la main en
-      # postgresql+asyncpg:// et postgresql+psycopg://.
+      # Câblées automatiquement depuis la base : plus rien à recopier.
+      #
+      # Render fournit une URL `postgresql://` sans pilote, là où SQLAlchemy en
+      # déduit psycopg2 (absent) et où le moteur applicatif exige asyncpg. La
+      # documentation demandait donc de réécrire le préfixe à la main, deux fois.
+      # `Settings` le fait désormais tout seul (app/core/config.py), ce qui
+      # supprime la manipulation la plus oubliée d'un premier déploiement.
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: registre-db
+          property: connectionString
       - key: DATABASE_URL_MIGRATIONS
-        sync: false
+        fromDatabase:
+          name: registre-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: FILE_SIGNING_SECRET

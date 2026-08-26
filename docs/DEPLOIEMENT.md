@@ -35,23 +35,51 @@ Ces limites viennent de Render, pas de l'application. Les connaître d'avance
 
 ### Les deux URL de base de données
 
-Render fournit une URL au format `postgresql://…`. L'application en attend
-**deux**, chacune avec son pilote explicite — à recopier à la main depuis
-l'onglet *Connect* de la base :
+**Rien à faire : elles sont câblées automatiquement** par `render.yaml`, depuis
+la base déclarée dans le même fichier.
 
-| Variable | Valeur | Rôle |
-| --- | --- | --- |
-| `DATABASE_URL` | `postgresql+asyncpg://…` | Connexion applicative (soumise aux politiques RLS) |
-| `DATABASE_URL_MIGRATIONS` | `postgresql+psycopg://…` | Alembic uniquement, jamais utilisée au runtime |
+| Variable | Rôle |
+| --- | --- |
+| `DATABASE_URL` | Connexion applicative, soumise aux politiques RLS |
+| `DATABASE_URL_MIGRATIONS` | Alembic uniquement, jamais utilisée au runtime |
 
-Prendre l'**Internal Database URL** (plus rapide et non exposée), et remplacer
-le préfixe `postgresql://` par `postgresql+asyncpg://` puis
-`postgresql+psycopg://` respectivement.
+Render fournit une URL `postgresql://…` sans pilote, là où SQLAlchemy en déduit
+psycopg2 — absent du projet — et où le moteur applicatif exige asyncpg. Cette
+version de la documentation demandait de réécrire le préfixe à la main, deux
+fois, depuis l'onglet *Connect*. C'était la manipulation la plus oubliée d'un
+premier déploiement, et son message d'erreur ne parle jamais de l'URL.
+`Settings` normalise désormais le préfixe lui-même (`app/core/config.py`) : une
+URL qui nomme déjà un pilote est respectée, les autres reçoivent le bon.
 
-> Le rôle applicatif restreint décrit dans `README.md` n'existe pas sur la base
-> gratuite de Render : les deux URL utiliseront le même utilisateur. Les
-> politiques RLS restent actives, mais le cloisonnement ne bénéficie plus de la
-> défense en profondeur d'un rôle séparé. À rétablir sur une base dédiée.
+### Un seul rôle Postgres, et ce que cela impliquait
+
+L'offre gratuite de Render ne fournit **qu'un utilisateur**. Ce compte crée les
+tables (Alembic) et fait tourner l'application : il en est donc propriétaire.
+
+Or en PostgreSQL, `ENABLE ROW LEVEL SECURITY` **ne s'applique pas au
+propriétaire de la table**. Une version précédente de ce document affirmait que
+« les politiques RLS restent actives » dans cette configuration : c'était faux.
+Elles devenaient entièrement inertes, sans erreur ni avertissement, et le
+cloisonnement multi-organisation ne tenait plus que par les filtres écrits dans
+le code applicatif.
+
+Mesuré sur la base de développement, sans contexte d'organisation posé :
+
+```
+rôle applicatif restreint   ->  records: 0    memberships: 0
+rôle propriétaire ordinaire ->  records: 46   memberships: 42   <- tout est visible
+```
+
+La migration `a007fa36a9d1` ajoute `FORCE ROW LEVEL SECURITY` sur les 25 tables
+concernées : le propriétaire est désormais soumis aux mêmes politiques que tout
+le monde, et l'isolation tient quel que soit le nombre de rôles offerts par
+l'hébergeur. Un test (`tests/test_rls_is_forced.py`) échoue si une table ajoutée
+plus tard oublie ce `FORCE`.
+
+> Conséquence à connaître : Alembic tourne sous le propriétaire. Une migration
+> future qui modifierait des **données** sur ces tables devra poser
+> `app.current_org_id`, sous peine de ne toucher aucune ligne — silencieusement.
+> Aucune migration existante n'est concernée, toutes sont structurelles.
 
 ---
 

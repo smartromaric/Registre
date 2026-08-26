@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,6 +69,50 @@ class Settings(BaseSettings):
     trial_period_days: int = 14
     read_only_grace_days: int = 30
     retention_months: int = 12
+
+    # --- Normalisation des URL de base de données ----------------------------
+    #
+    # Les hébergeurs (Render, Heroku, Railway…) fournissent une URL au format
+    # `postgres://` ou `postgresql://`, sans pilote. SQLAlchemy, lui, en déduit
+    # le pilote depuis le schéma : `postgresql://` choisit psycopg2, qui n'est
+    # pas installé — et surtout le moteur applicatif est *asynchrone* et exige
+    # asyncpg. Le message d'erreur, lui, parle de module introuvable et ne dit
+    # rien de l'URL.
+    #
+    # La documentation demandait donc de recopier l'URL à la main en
+    # `postgresql+asyncpg://` d'un côté et `postgresql+psycopg://` de l'autre.
+    # Une manipulation manuelle, invisible, à faire deux fois, au moment précis
+    # où l'on découvre la plateforme : c'est le premier déploiement qui échoue.
+    # On la fait ici, une fois pour toutes.
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _force_async_driver(cls, value: str) -> str:
+        return _with_driver(value, "asyncpg")
+
+    @field_validator("database_url_migrations", mode="after")
+    @classmethod
+    def _force_sync_driver(cls, value: str) -> str:
+        return _with_driver(value, "psycopg")
+
+
+def _with_driver(url: str, driver: str) -> str:
+    """Impose le pilote SQLAlchemy sur une URL PostgreSQL, sans toucher au reste.
+
+    Une URL qui nomme déjà *un* pilote est laissée telle quelle : c'est un choix
+    explicite de l'exploitant, et l'écraser serait plus surprenant qu'utile.
+    Une URL qui n'est pas PostgreSQL (SQLite en test, par exemple) n'est pas
+    concernée.
+    """
+    scheme, separator, rest = url.partition("://")
+    if not separator:
+        return url
+    base, _, existing_driver = scheme.partition("+")
+    if base not in ("postgres", "postgresql"):
+        return url
+    if existing_driver:
+        return url
+    return f"postgresql+{driver}://{rest}"
 
 
 @lru_cache

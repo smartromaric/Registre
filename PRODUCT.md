@@ -1497,6 +1497,72 @@ quotidiens, chaque tour rapatriait l'historique complet du destinataire pour
 n'en afficher que huit lignes. Plafond par défaut à 50, réglable jusqu'à 200.
 
 
+### 10.20 Contrôle avant déploiement (2026-08-26) — une faille de cloisonnement trouvée
+
+Audit de préparation au déploiement, motivé par une question simple : « peut-on
+déployer ? ». Migrations à jour, blueprint valide, tests verts — et un défaut
+sérieux, invisible tant qu'on ne déploie pas.
+
+**RLS ne s'appliquait pas au propriétaire des tables.** Toutes les tables
+portaient `ENABLE ROW LEVEL SECURITY`, aucune ne portait `FORCE`. Or PostgreSQL
+exempte le propriétaire d'une table de ses propres politiques tant que RLS n'est
+pas forcé. Le choix se tenait en développement, où deux rôles existent :
+`postgres` crée les tables, `registre_app` — non propriétaire — les lit sous
+politiques. Le commentaire du lot 0 l'énonçait d'ailleurs explicitement.
+
+Il ne tient plus dès que l'hébergeur ne fournit **qu'un seul utilisateur**, ce
+qui est le cas de l'offre gratuite de Render comme de la plupart des bases
+managées d'entrée de gamme. Ce compte unique crée les tables (Alembic) *et* fait
+tourner l'application : il en est propriétaire, et les 25 politiques d'isolation
+deviennent **entièrement inertes** — sans erreur, sans avertissement, sans que
+rien ne le signale à l'exécution. Le cloisonnement multi-organisation ne tenait
+plus que par les filtres écrits dans le code applicatif, et l'affirmation du §6.3
+— « impossible à contourner par une route mal écrite » — devenait fausse en
+production. `docs/DEPLOIEMENT.md` affirmait au contraire, à tort, que « les
+politiques RLS restent actives ».
+
+Mesuré, pas déduit. Sans contexte d'organisation, sur la base locale :
+
+```
+rôle applicatif restreint   ->  records: 0    memberships: 0
+rôle propriétaire           ->  records: 46   memberships: 42
+```
+
+La première mesure sur le propriétaire local restait à 46 lignes *après* l'ajout
+de `FORCE` — parce que `postgres` est **superutilisateur**, et qu'un
+superutilisateur contourne RLS quoi qu'il arrive. La mesure ne disait donc rien
+du cas qui nous occupe. Refaite sur un rôle `NOSUPERUSER NOBYPASSRLS`
+propriétaire de sa table, c'est-à-dire le profil exact d'un compte managé :
+
+```
+ENABLE seul  -> le propriétaire voit 3 lignes sur 3
+AVEC FORCE   -> 0 sans contexte, et exactement la sienne avec
+```
+
+Migration `a007fa36a9d1` : `FORCE ROW LEVEL SECURITY` sur les 25 tables, relevées
+dans `pg_class` plutôt que recopiées des migrations. `tests/test_rls_is_forced.py`
+garde l'invariant — vérifié en cassant délibérément une table, le test nomme la
+coupable et donne le remède. Conséquence notée dans les deux documentations :
+Alembic tourne sous le propriétaire, une migration de **données** devra donc
+poser `app.current_org_id`. Aucune migration existante n'est concernée.
+
+**Deux frictions de déploiement supprimées au passage.**
+
+- Les URL de base de données étaient à recopier à la main, deux fois, en
+  remplaçant `postgresql://` par `postgresql+asyncpg://` puis
+  `postgresql+psycopg://`. Render, Heroku et Railway fournissent tous une URL
+  sans pilote ; SQLAlchemy en déduit psycopg2, absent, et le moteur applicatif
+  exige de toute façon asyncpg — avec un message d'erreur qui parle de module
+  introuvable et ne mentionne jamais l'URL. `Settings` normalise désormais le
+  préfixe (une URL nommant déjà un pilote est respectée), et `render.yaml` câble
+  les deux variables directement depuis la base déclarée.
+- Un faux diagnostic corrigé en cours de route : la sonde qui annonçait « aucune
+  échéance en base » interrogeait la base avec le rôle restreint **sans contexte
+  d'organisation** — RLS lui cachait les 46 fiches existantes. Le balayage
+  nocturne, lui, était correct depuis le début : il pose le contexte organisation
+  par organisation (`app/tasks/alerts.py`).
+
+
 ## 11. Manuel utilisateur
 
 Tenu à jour en parallèle du développement dans
