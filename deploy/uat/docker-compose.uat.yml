@@ -1,0 +1,29 @@
+# Surcouche « cohabitation » — pour un serveur qui fait DÉJÀ tourner un nginx.
+#
+# Cas de uat.upjunoo.com : la machine sert déjà upjunoo.com et about.upjunoo.com
+# en production. Démarrer notre Caddy sur 80/443 échouerait — et s'il y
+# parvenait, il couperait un site en service. On laisse donc nginx en façade, et
+# la pile n'expose que des ports LOCAUX qu'il vient relayer.
+#
+#   docker compose -f docker-compose.prod.yml -f uat/docker-compose.uat.yml up -d --build
+#
+# Caddy ne démarre pas : il est sous le profil `standalone` du fichier de base.
+
+services:
+  web:
+    ports:
+      # `127.0.0.1:` et surtout PAS `4000:3000`.
+      #
+      # Sans l'adresse explicite, Docker publie sur 0.0.0.0 ET ouvre le port dans
+      # iptables en contournant ufw : l'application serait directement joignable
+      # depuis Internet, hors de nginx, donc sans TLS. C'est exactement ce qui
+      # est arrivé au PostgreSQL déjà présent sur cette machine.
+      - "127.0.0.1:4000:3000"
+
+  api:
+    ports:
+      - "127.0.0.1:4001:8000"
+
+  site:
+    ports:
+      - "127.0.0.1:4002:80"

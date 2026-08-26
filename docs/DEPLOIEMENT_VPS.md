@@ -156,3 +156,85 @@ worker et Beat attendent qu'il soit sain avant de démarrer.
 - **Mises à jour automatiques** : `sudo apt install unattended-upgrades`.
 - `deploy/.env` contient tous les secrets. Il est en `chmod 600` et ignoré par
   git — ne jamais le committer, ne jamais le copier en clair.
+
+---
+
+## 8. Cohabiter avec un nginx déjà en place — le cas `uat.upjunoo.com`
+
+Le serveur 194.29.101.141 **n'est pas vide**. Relevé depuis l'extérieur le
+26 août 2026 :
+
+| Port | Ce qui répond |
+| --- | --- |
+| 80 / 443 | **nginx**, servant `upjunoo.com`, `www.upjunoo.com` et `about.upjunoo.com` (certificat Let's Encrypt valide jusqu'au 27/10/2026) |
+| 3000 | une application Next.js |
+| 8000 | un service HTTP qui redirige vers `/ci` |
+| 8443 | nginx |
+| 5432 | **PostgreSQL, joignable depuis Internet** — voir l'avertissement plus bas |
+
+Démarrer la façade Caddy sur cette machine **couperait un site en production**.
+`bootstrap.sh` refuse d'ailleurs de s'exécuter si 80 ou 443 sont déjà pris.
+
+### Ce qui est disponible
+
+`uat.upjunoo.com` résout bien vers ce serveur, mais **rien n'y est configuré** :
+nginx retombe sur son vhost par défaut et présente le certificat
+d'`about.upjunoo.com`, qui ne correspond pas — le navigateur affiche donc
+aujourd'hui un avertissement de sécurité.
+
+Il n'y a **pas de DNS joker** sur `upjunoo.com` (`n-importe-quoi.upjunoo.com`
+renvoie NXDOMAIN) : `uat.upjunoo.com` est le seul nom utilisable sans toucher à
+la zone DNS.
+
+### Une seule origine, trois préfixes
+
+```
+https://uat.upjunoo.com/            l'application
+https://uat.upjunoo.com/backend/    l'API
+https://uat.upjunoo.com/vitrine/    le site vitrine
+```
+
+Ce n'est pas qu'un pis-aller. Le cookie de session devient *same-origin* : plus
+de CORS du tout, et l'attribut `Secure` fonctionne naturellement.
+
+Deux conséquences techniques :
+
+- nginx **retire** le préfixe `/backend` avant de transmettre (la barre finale
+  de `proxy_pass`), pour que l'API reçoive `/api/v1/...` comme d'habitude ;
+- le site vitrine est construit avec `NEXT_PUBLIC_BASE_PATH=/vitrine`, sans quoi
+  ses fichiers exportés référenceraient `/_next/static/…` en absolu et rien ne
+  se chargerait.
+
+### Installation
+
+```bash
+git clone https://github.com/smartromaric/Registre.git ~/registre
+cd ~/registre/deploy/uat
+./bootstrap-uat.sh
+```
+
+Le script génère les secrets, démarre la pile **sans Caddy** (les services
+n'écoutent que sur `127.0.0.1`), installe le vhost, vérifie la configuration
+avec `nginx -t` **avant** tout rechargement — une configuration invalide
+couperait `upjunoo.com` — puis demande le certificat à certbot.
+
+> Les ports sont publiés en `127.0.0.1:4000` et non `4000`. Sans l'adresse
+> explicite, Docker publie sur `0.0.0.0` **et perce ufw** en écrivant
+> directement dans iptables : les services seraient joignables depuis Internet,
+> hors de nginx, donc sans TLS.
+
+### ⚠ PostgreSQL est exposé sur Internet
+
+Le port 5432 de cette machine accepte les connexions depuis n'importe où, et
+répond `N` à une demande SSL — les échanges se feraient donc **en clair**. Cela
+ne concerne pas Registre (notre base reste interne à la pile Docker), mais
+l'installation déjà présente. À corriger indépendamment :
+
+```bash
+sudo ufw deny 5432/tcp
+# et, dans postgresql.conf :  listen_addresses = 'localhost'
+```
+
+Si un conteneur Docker publie ce port, c'est le `ports:` de son compose qu'il
+faut corriger en `127.0.0.1:5432:5432` : une règle ufw ne suffirait pas, Docker
+la contournant.

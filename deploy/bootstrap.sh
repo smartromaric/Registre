@@ -31,6 +31,17 @@ fi
 
 docker compose version >/dev/null 2>&1 || die "Le greffon 'docker compose' est absent. Installez docker-compose-plugin."
 
+# --- La machine est-elle libre ? ---------------------------------------------
+# Un serveur web deja en place tient 80/443 : Caddy echouerait a demarrer, et
+# s'il y parvenait il couperait le site en service. Mieux vaut s'arreter ici.
+if sudo ss -lntp 2>/dev/null | grep -qE ':(80|443)\s'; then
+	echo
+	echo "  Un service ecoute deja sur 80 ou 443 :"
+	sudo ss -lntp | grep -E ':(80|443)\s' | sed 's/^/      /'
+	echo
+	die "Ce script suppose une machine libre. Pour cohabiter avec un serveur web existant, suivez docs/DEPLOIEMENT_VPS.md, section « Cohabiter avec un nginx deja en place »."
+fi
+
 # --- Pare-feu ----------------------------------------------------------------
 # Seuls SSH, HTTP et HTTPS. Postgres et Redis ne sont joignables que depuis le
 # réseau interne de la pile : les exposer serait le trou de sécurité classique
@@ -92,10 +103,12 @@ done
 
 # --- Lancement ---------------------------------------------------------------
 log "Construction et démarrage (plusieurs minutes au premier lancement)…"
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# `--profile standalone` demarre Caddy. Sur une machine qui fait deja tourner
+# un serveur web, utiliser plutot la surcouche uat/ (voir docs/DEPLOIEMENT_VPS.md).
+docker compose -f docker-compose.prod.yml --env-file .env --profile standalone up -d --build
 
 log "État des services"
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml --profile standalone ps
 
 cat <<EOF
 

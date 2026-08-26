@@ -9,10 +9,16 @@
 #   db      PostgreSQL 16, deux rôles
 #   redis   file de messages de Celery
 #
-# Aucun port applicatif n'est publié sur l'hôte : seul `caddy` expose 80 et 443.
-# `db` et `redis` ne sont joignables que depuis le réseau interne de la pile.
+# DEUX TOPOLOGIES, un seul fichier.
 #
-# Lancement :  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# A. Serveur dédié — Caddy prend 80/443 et gère les certificats :
+#      docker compose -f docker-compose.prod.yml --profile standalone up -d --build
+#
+# B. Cohabitation avec un nginx déjà en place (cas de uat.upjunoo.com) — Caddy
+#    ne démarre pas, les services écoutent sur 127.0.0.1 et nginx les relaie :
+#      docker compose -f docker-compose.prod.yml -f uat/docker-compose.uat.yml up -d --build
+#
+# Dans les deux cas `db` et `redis` restent internes à la pile, jamais exposés.
 
 name: registre
 
@@ -69,9 +75,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET}
       CRON_SECRET: ${CRON_SECRET}
-      API_PUBLIC_URL: https://${API_DOMAIN}
-      FRONTEND_BASE_URL: https://${APP_DOMAIN}
-      CORS_ORIGINS: '["https://${APP_DOMAIN}","https://${SITE_DOMAIN}"]'
+      API_PUBLIC_URL: ${API_URL}
+      FRONTEND_BASE_URL: ${APP_URL}
+      # Même origine que l'application en topologie B : CORS devient alors sans
+      # objet, et le cookie de session est nativement same-site.
+      CORS_ORIGINS: '["${APP_URL}","${SITE_URL}"]'
       # Stockage sur le disque du serveur : un VPS a un système de fichiers
       # persistant, contrairement aux offres gratuites en conteneur éphémère.
       # Le volume `storage` est donc la sauvegarde à ne pas oublier.
@@ -111,8 +119,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET}
       FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET}
-      API_PUBLIC_URL: https://${API_DOMAIN}
-      FRONTEND_BASE_URL: https://${APP_DOMAIN}
+      API_PUBLIC_URL: ${API_URL}
+      FRONTEND_BASE_URL: ${APP_URL}
       STORAGE_BACKEND: local
       STORAGE_LOCAL_PATH: /var/registre/storage
       SMTP_HOST: ${SMTP_HOST:-}
@@ -146,7 +154,7 @@ services:
       args:
         # Figées dans le bundle : changer ces valeurs impose `--build`, pas un
         # simple redémarrage. Voir le commentaire du Dockerfile.
-        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+        NEXT_PUBLIC_API_URL: ${API_URL}
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     depends_on:
@@ -165,11 +173,18 @@ services:
       context: ../site
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+        NEXT_PUBLIC_APP_URL: ${APP_URL}
+        # Vide sur un domaine dédié ; « /vitrine » quand le site partage son
+        # nom avec l'application (voir site/next.config.ts).
+        NEXT_PUBLIC_BASE_PATH: ${SITE_BASE_PATH:-}
     restart: unless-stopped
 
   caddy:
     image: caddy:2-alpine
+    # Profil `standalone` : sur une machine qui fait déjà tourner un nginx,
+    # démarrer Caddy échouerait sur les ports 80/443 — et pire, s'il y parvenait,
+    # il couperait le site déjà en production.
+    profiles: ["standalone"]
     restart: unless-stopped
     depends_on:
       - web
